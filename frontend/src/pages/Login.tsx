@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
+import { useAuth } from '../contexts/AuthContext';
 import { Brain, Eye, EyeOff } from 'lucide-react';
 
 export const Login = () => {
@@ -13,6 +14,7 @@ export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +41,7 @@ export const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        login(data.token, data.user);
         toast({
           title: "Success",
           description: isLogin ? "Logged in successfully!" : "Account created successfully!",
@@ -65,11 +66,11 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-surface/20">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md p-8 bg-card/50 backdrop-blur-sm rounded-2xl border border-white/10 shadow-2xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-primary to-primary-dark rounded-2xl mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4">
             <Brain className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary mb-2">
@@ -114,7 +115,8 @@ export const Login = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors eye-button"
+                style={{ background: 'transparent', border: 'none', padding: '0' }}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -129,7 +131,7 @@ export const Login = () => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary transition-all duration-200"
+            className="w-full bg-primary hover:bg-primary-dark transition-all duration-200"
           >
             {isLoading ? (
               <div className="flex items-center">
@@ -146,14 +148,12 @@ export const Login = () => {
         <div className="mt-6 text-center">
           <p className="text-text-secondary">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
-            <button
-              type="button"
+            <span
               onClick={() => setIsLogin(!isLogin)}
-              className="ml-2 text-primary hover:text-primary-dark font-medium transition-colors"
-              disabled={isLoading}
+              className="ml-2 text-primary hover:text-primary-dark font-medium transition-colors cursor-pointer"
             >
               {isLogin ? 'Sign up' : 'Sign in'}
-            </button>
+            </span>
           </p>
         </div>
       </div>

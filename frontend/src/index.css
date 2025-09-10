@@ -203,15 +203,28 @@
     border-color: #8B5CF6 !important; /* Primary */
   }
   
-  /* Override any default browser button styles */
-  .dark button:not([class*="bg-"]):not([class*="text-"]) {
+  /* Override any default browser button styles - but only for actual form buttons */
+  .dark button[type="submit"]:not([class*="bg-"]),
+  .dark button[type="button"]:not([class*="bg-"]):not([class*="text-primary"]):not(.eye-button) {
     background-color: #8B5CF6 !important; /* Primary */
     color: #F1F5F9 !important; /* Text Primary */
     border: 1px solid #8B5CF6 !important;
   }
   
-  .dark button:not([class*="bg-"]):not([class*="text-"]):hover {
+  .dark button[type="submit"]:not([class*="bg-"]):hover,
+  .dark button[type="button"]:not([class*="bg-"]):not([class*="text-primary"]):not(.eye-button):hover {
     background-color: #A78BFA !important; /* Primary Hover */
+  }
+  
+  /* Ensure eye button stays transparent */
+  .dark .eye-button {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  
+  .dark .eye-button:hover {
+    background: transparent !important;
   }
   
   /* Ensure all interactive elements use design system colors */
