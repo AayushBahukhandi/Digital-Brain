@@ -33,7 +33,7 @@ export class OpenRouterService {
   constructor(apiKey?: string) {
     this.apiKey = apiKey || process.env.OPENROUTER_API_KEY || '';
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key is required');
+      console.warn('OpenRouter API key not found. Chat and summarization will use fallback methods.');
     }
   }
 
@@ -49,6 +49,10 @@ export class OpenRouterService {
       top_p?: number;
     }
   ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
     try {
       const modelToUse = model || this.defaultModel;
       console.log(`Generating response with OpenRouter model: ${modelToUse}`);
@@ -80,8 +84,18 @@ export class OpenRouterService {
       } else {
         throw new Error('No response generated from OpenRouter');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('OpenRouter API error:', error);
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        throw new Error('OpenRouter API key is invalid or expired. Please check your API key.');
+      } else if (error.response?.status === 429) {
+        throw new Error('OpenRouter API rate limit exceeded. Please try again later.');
+      } else if (error.response?.status === 402) {
+        throw new Error('OpenRouter API credits exhausted. Please add credits to your account.');
+      }
+      
       throw new Error(`Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -97,6 +111,10 @@ export class OpenRouterService {
       max_tokens?: number;
     }
   ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
     const messages: OpenRouterMessage[] = [
       {
         role: 'user',
@@ -114,6 +132,10 @@ export class OpenRouterService {
     text: string,
     context?: string
   ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
     const systemPrompt = `You are an expert at creating concise, accurate summaries. 
     Create a clear, well-structured summary that captures the main points and key information.
     Focus on the most important details and maintain the original meaning.`;
@@ -141,6 +163,10 @@ export class OpenRouterService {
     context: string,
     systemPrompt?: string
   ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
     const defaultSystemPrompt = `You are an expert video content assistant. Analyze the provided video information and give a comprehensive, detailed answer to the user's question.
 
 INSTRUCTIONS:

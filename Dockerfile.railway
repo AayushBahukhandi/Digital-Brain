@@ -40,9 +40,9 @@ WORKDIR /app/backend
 RUN mkdir -p tts-models
 
 # Set environment variables
-ENV OPENROUTER_API_KEY=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
 ENV NODE_ENV=production
 ENV TTS_MODEL=en_US-lessac-medium
+# Note: OPENROUTER_API_KEY should be set in Railway dashboard as environment variable
 
 # Expose port (Railway will set PORT env var)
 EXPOSE $PORT
