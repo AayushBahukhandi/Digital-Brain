@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../database/sqlite.js';
-import { OllamaService } from '../services/ollama.js';
+import { OpenRouterService } from '../services/openrouter.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 
 export const chatRoutes = Router();
@@ -181,14 +181,14 @@ async function generateGlobalChatResponse(message: string, searchResults: any[])
     return "I couldn't find any relevant content in your videos for that query. Try asking about specific topics or using different keywords.";
   }
   
-  // Initialize Ollama service
-  const ollama = new OllamaService();
+  // Initialize OpenRouter service
+  const openRouter = new OpenRouterService();
   
-  // Check if Ollama is available
-  const isOllamaAvailable = await ollama.isAvailable();
+  // Check if OpenRouter is available
+  const isOpenRouterAvailable = await openRouter.isAvailable();
   
-  if (!isOllamaAvailable) {
-    console.warn('Ollama not available, falling back to simple response');
+  if (!isOpenRouterAvailable) {
+    console.warn('OpenRouter not available, falling back to simple response');
     return generateSimpleResponse(message, searchResults);
   }
   
@@ -196,11 +196,8 @@ async function generateGlobalChatResponse(message: string, searchResults: any[])
     // Prepare context for the LLM
     const context = prepareContextForLLM(message, searchResults);
     
-    // Generate prompt for the LLM
-    const prompt = createLLMPrompt(message, context);
-    
-    // Get response from Ollama
-    const llmResponse = await ollama.generateResponse(prompt);
+    // Get response from OpenRouter
+    const llmResponse = await openRouter.generateChatResponse(message, context);
     
     return llmResponse;
   } catch (error) {
@@ -262,30 +259,6 @@ function extractBetterContext(transcript: string, query: string): string {
   return sentences.slice(0, 2).join('. ').trim() + '.';
 }
 
-function createLLMPrompt(userMessage: string, context: string): string {
-  return `You are an expert video content assistant. Analyze the provided video information and give a comprehensive, detailed answer to the user's question.
-
-CONTEXT:
-${context}
-
-USER QUESTION: "${userMessage}"
-
-INSTRUCTIONS:
-1. **Be Comprehensive**: Provide a detailed explanation based on the video content
-2. **Be Specific**: Reference actual content, concepts, and details from the videos
-3. **Be Structured**: Organize your response logically with clear sections if needed
-4. **Be Conversational**: Write in a helpful, engaging tone
-5. **Be Complete**: Don't leave the user hanging - provide full explanations
-
-SPECIAL GUIDELINES:
-- If asked "what I actually did" or "what did I cover", explain the specific content, concepts, and topics covered in the video(s)
-- If multiple videos are relevant, explain how they relate and what each covers
-- Use the relevance scores to prioritize information from the most relevant videos
-- Quote or paraphrase specific content from the videos to support your explanations
-- If the user asks for details, provide thorough explanations with examples from the content
-
-RESPONSE:`;
-}
 
 function generateSimpleResponse(message: string, searchResults: any[]): string {
   const lowerMessage = message.toLowerCase();

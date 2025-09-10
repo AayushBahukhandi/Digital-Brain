@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { OpenRouterService } from './openrouter.js';
 
 export interface TranscriptResult {
     success: boolean;
@@ -689,13 +690,82 @@ export class TranscriptService {
     /**
      * Generate a summary from transcript text with improved intelligence
      */
-    static generateSummary(transcript: string): string {
+    static async generateSummary(transcript: string): Promise<string> {
         if (!transcript || transcript.trim().length === 0) {
             return 'No content available for summary.';
         }
 
-        // Advanced text cleaning
-        let cleanText = transcript
+        // For short transcripts, use simple processing
+        if (transcript.length <= 500) {
+            return this.generateSimpleSummary(transcript);
+        }
+
+        // Try OpenRouter for better summarization
+        try {
+            const openRouter = new OpenRouterService();
+            const isAvailable = await openRouter.isAvailable();
+            
+            if (isAvailable) {
+                console.log('Using OpenRouter for advanced summarization');
+                return await openRouter.generateSummary(transcript, 'This is a transcript from a video or audio recording');
+            }
+        } catch (error) {
+            console.warn('OpenRouter summarization failed, falling back to local processing:', error);
+        }
+
+        // Fallback to local processing
+        return this.generateLocalSummary(transcript);
+    }
+
+    /**
+     * Generate a simple summary for short content
+     */
+    private static generateSimpleSummary(transcript: string): string {
+        const cleanText = this.preprocessTranscript(transcript);
+        
+        if (cleanText.length <= 150) {
+            return cleanText;
+        }
+
+        // Extract first few meaningful sentences
+        const sentences = cleanText.split(/[.!?]+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 20)
+            .slice(0, 3);
+
+        return sentences.join('. ') + '.';
+    }
+
+    /**
+     * Generate summary using local processing
+     */
+    private static generateLocalSummary(transcript: string): string {
+        // Advanced text cleaning and preprocessing
+        let cleanText = this.preprocessTranscript(transcript);
+
+        if (cleanText.length <= 150) {
+            return cleanText;
+        }
+
+        // Extract key information using multiple strategies
+        const keyInfo = this.extractKeyInformation(cleanText);
+        const importantSentences = this.extractImportantSentences(cleanText);
+        const topics = this.extractTopics(cleanText);
+
+        // Generate summary based on content type and length
+        let summary = this.generateContextualSummary(cleanText, keyInfo, importantSentences, topics);
+
+        // Post-process and validate summary
+        summary = this.postProcessSummary(summary, cleanText);
+
+        return summary || 'Unable to generate meaningful summary from the available content.';
+    }
+
+    /**
+     * Preprocess transcript for better analysis
+     */
+    private static preprocessTranscript(transcript: string): string {
+        return transcript
             .replace(/\s+/g, ' ')
             .replace(/\[.*?\]/g, '') // Remove [Music], [Applause], etc.
             .replace(/\(.*?\)/g, '') // Remove (inaudible), etc.
@@ -703,80 +773,195 @@ export class TranscriptService {
             .replace(/\b(and|but|or|so|then|now|well|okay|alright)\s+/gi, '') // Remove weak connectors
             .replace(/\s+/g, ' ')
             .trim();
+    }
 
-        if (cleanText.length <= 150) {
-            return cleanText;
-        }
+    /**
+     * Extract key information from transcript
+     */
+    private static extractKeyInformation(text: string): {
+        numbers: string[];
+        dates: string[];
+        names: string[];
+        questions: string[];
+        conclusions: string[];
+    } {
+        const numbers = text.match(/\b\d+(?:\.\d+)?%?\b/g) || [];
+        const dates = text.match(/\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}|\b\d{1,2}\/\d{1,2}\/\d{2,4}|\b\d{4}-\d{2}-\d{2}\b/gi) || [];
+        const names = text.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g) || [];
+        const questions = text.match(/[^.!?]*\?[^.!?]*/g) || [];
+        const conclusions = text.match(/\b(?:in conclusion|to summarize|finally|overall|in summary|to wrap up|in the end)\b[^.!?]*[.!?]/gi) || [];
 
-        // Split into sentences and analyze importance
-        const sentences = cleanText.split(/[.!?]+/)
+        return { numbers, dates, names, questions, conclusions };
+    }
+
+    /**
+     * Extract important sentences using advanced scoring
+     */
+    private static extractImportantSentences(text: string): Array<{sentence: string, score: number, index: number}> {
+        const sentences = text.split(/[.!?]+/)
             .map(s => s.trim())
-            .filter(s => s.length > 20); // Only meaningful sentences
+            .filter(s => s.length > 20);
 
         if (sentences.length <= 2) {
-            return cleanText.substring(0, 300) + (cleanText.length > 300 ? '...' : '');
+            return sentences.map((s, i) => ({ sentence: s, score: 1, index: i }));
         }
 
-        // Score sentences based on importance indicators
-        const scoredSentences = sentences.map((sentence, index) => {
+        return sentences.map((sentence, index) => {
             let score = 0;
             const lowerSentence = sentence.toLowerCase();
             
-            // Higher score for sentences with important keywords
-            const importantWords = [
-                'main', 'key', 'important', 'crucial', 'essential', 'primary', 'major',
-                'first', 'second', 'third', 'finally', 'conclusion', 'summary',
-                'problem', 'solution', 'result', 'outcome', 'benefit', 'advantage',
-                'tip', 'trick', 'method', 'technique', 'strategy', 'approach',
-                'because', 'therefore', 'however', 'although', 'despite'
-            ];
-            
-            importantWords.forEach(word => {
-                if (lowerSentence.includes(word)) score += 2;
+            // Content importance indicators
+            const importanceIndicators = {
+                high: ['main', 'key', 'important', 'crucial', 'essential', 'primary', 'major', 'critical', 'vital'],
+                medium: ['first', 'second', 'third', 'finally', 'conclusion', 'summary', 'problem', 'solution', 'result', 'outcome'],
+                low: ['tip', 'trick', 'method', 'technique', 'strategy', 'approach', 'because', 'therefore', 'however']
+            };
+
+            // Score based on importance indicators
+            Object.entries(importanceIndicators).forEach(([level, words]) => {
+                const multiplier = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+                words.forEach(word => {
+                    if (lowerSentence.includes(word)) score += multiplier;
+                });
             });
 
-            // Boost first and last sentences
-            if (index === 0) score += 3;
-            if (index === sentences.length - 1) score += 2;
+            // Position-based scoring
+            if (index === 0) score += 3; // First sentence
+            if (index === sentences.length - 1) score += 2; // Last sentence
+            if (index < sentences.length * 0.1) score += 1; // Early sentences
 
-            // Boost sentences with numbers or specific data
-            if (/\d+/.test(sentence)) score += 1;
-            
-            // Boost questions (often important)
-            if (sentence.includes('?')) score += 1;
+            // Content-based scoring
+            if (/\d+/.test(sentence)) score += 1; // Contains numbers
+            if (sentence.includes('?')) score += 1; // Questions
+            if (sentence.includes(':')) score += 1; // Lists or explanations
+            if (sentence.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/)) score += 1; // Contains names
 
-            // Penalize very short or very long sentences
-            if (sentence.length < 30) score -= 1;
+            // Length-based scoring (optimal length 30-150 chars)
+            if (sentence.length >= 30 && sentence.length <= 150) score += 1;
+            if (sentence.length < 20) score -= 2;
             if (sentence.length > 200) score -= 1;
 
-            return { sentence, score, index };
+            // Repetition penalty
+            const words = sentence.toLowerCase().split(/\s+/);
+            const uniqueWords = new Set(words);
+            if (words.length > uniqueWords.size * 1.5) score -= 1;
+
+            return { sentence, score: Math.max(0, score), index };
+        });
+    }
+
+    /**
+     * Extract main topics from transcript
+     */
+    private static extractTopics(text: string): string[] {
+        const topicKeywords = {
+            'technology': ['tech', 'software', 'app', 'digital', 'computer', 'internet', 'ai', 'machine learning'],
+            'business': ['business', 'company', 'startup', 'market', 'revenue', 'profit', 'customer', 'product'],
+            'education': ['learn', 'study', 'course', 'education', 'school', 'university', 'student', 'teacher'],
+            'health': ['health', 'medical', 'fitness', 'wellness', 'doctor', 'treatment', 'medicine', 'exercise'],
+            'science': ['science', 'research', 'study', 'experiment', 'data', 'analysis', 'theory', 'hypothesis'],
+            'entertainment': ['movie', 'music', 'game', 'fun', 'entertainment', 'show', 'series', 'book']
+        };
+
+        const topics: string[] = [];
+        const lowerText = text.toLowerCase();
+
+        Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+            const matches = keywords.filter(keyword => lowerText.includes(keyword)).length;
+            if (matches >= 2) {
+                topics.push(topic);
+            }
         });
 
-        // Sort by score and select top sentences
-        const topSentences = scoredSentences
+        return topics;
+    }
+
+    /**
+     * Generate contextual summary based on content analysis
+     */
+    private static generateContextualSummary(
+        text: string, 
+        keyInfo: any, 
+        importantSentences: Array<{sentence: string, score: number, index: number}>, 
+        topics: string[]
+    ): string {
+        // Select top sentences based on score
+        const topSentences = importantSentences
             .sort((a, b) => b.score - a.score)
-            .slice(0, 3)
-            .sort((a, b) => a.index - b.index); // Restore original order
+            .slice(0, Math.min(4, Math.max(2, Math.ceil(importantSentences.length * 0.3))))
+            .sort((a, b) => a.index - b.index);
 
         let summary = topSentences.map(s => s.sentence).join('. ');
-        
+
+        // Add contextual information if relevant
+        if (keyInfo.numbers.length > 0 && !summary.match(/\d+/)) {
+            const importantNumber = keyInfo.numbers[0];
+            summary = `The discussion mentions ${importantNumber}. ${summary}`;
+        }
+
+        if (topics.length > 0) {
+            const topicContext = `This ${topics[0]}-focused discussion covers: ${summary}`;
+            if (topicContext.length < 500) {
+                summary = topicContext;
+            }
+        }
+
         // Ensure proper ending
         if (!summary.match(/[.!?]$/)) {
             summary += '.';
         }
 
-        // Clean up and limit length
+        return summary;
+    }
+
+    /**
+     * Post-process and validate summary
+     */
+    private static postProcessSummary(summary: string, originalText: string): string {
+        // Clean up formatting
         summary = summary
             .replace(/\.\s*\./g, '.')
             .replace(/\s+/g, ' ')
             .trim();
 
-        if (summary.length > 400) {
-            const cutoff = summary.lastIndexOf('.', 400);
-            summary = cutoff > 200 ? summary.substring(0, cutoff + 1) : summary.substring(0, 400) + '...';
+        // Ensure summary is not too similar to original (avoid copying)
+        const similarity = this.calculateSimilarity(summary, originalText);
+        if (similarity > 0.8) {
+            // If too similar, try to make it more concise
+            const sentences = summary.split(/[.!?]+/).filter(s => s.trim());
+            if (sentences.length > 2) {
+                summary = sentences.slice(0, Math.ceil(sentences.length * 0.7)).join('. ') + '.';
+            }
         }
 
-        return summary || 'Unable to generate meaningful summary from the available content.';
+        // Length validation and adjustment
+        if (summary.length > 500) {
+            const cutoff = summary.lastIndexOf('.', 500);
+            summary = cutoff > 200 ? summary.substring(0, cutoff + 1) : summary.substring(0, 500) + '...';
+        }
+
+        // Ensure minimum meaningful content
+        if (summary.length < 50) {
+            const firstSentence = originalText.split(/[.!?]+/)[0];
+            if (firstSentence && firstSentence.length > 20) {
+                summary = firstSentence.substring(0, 200) + (firstSentence.length > 200 ? '...' : '');
+            }
+        }
+
+        return summary;
+    }
+
+    /**
+     * Calculate similarity between two texts (simple Jaccard similarity)
+     */
+    private static calculateSimilarity(text1: string, text2: string): number {
+        const words1 = new Set(text1.toLowerCase().split(/\s+/));
+        const words2 = new Set(text2.toLowerCase().split(/\s+/));
+        
+        const intersection = new Set([...words1].filter(x => words2.has(x)));
+        const union = new Set([...words1, ...words2]);
+        
+        return intersection.size / union.size;
     }
 
     /**

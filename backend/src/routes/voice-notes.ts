@@ -352,3 +352,165 @@ voiceNotesRoutes.get('/stats/overview', (req, res) => {
     });
   });
 });
+
+/**
+ * Add followup recording to an existing voice note
+ */
+voiceNotesRoutes.post('/:id/followup', upload.single('audio'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    console.log(`Adding followup recording to voice note ${id}: ${req.file.originalname}`);
+
+    const result = await VoiceNotesService.addFollowupRecording(
+      id,
+      req.file.buffer,
+      req.file.originalname
+    );
+
+    if (result.success && result.followupRecording) {
+      res.json({
+        success: true,
+        followupRecording: {
+          ...result.followupRecording,
+          audioUrl: `/api/voice-notes/audio/${result.followupRecording.filename}`
+        },
+        message: 'Followup recording added successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Followup recording processing failed'
+      });
+    }
+
+  } catch (error) {
+    console.error('Followup recording error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Followup recording failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+/**
+ * Create a new meeting session
+ */
+voiceNotesRoutes.post('/meetings', async (req, res) => {
+  try {
+    const { meetingId } = req.body;
+    
+    const result = await VoiceNotesService.createMeetingSession(meetingId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        meetingId: result.meetingId,
+        message: 'Meeting session created successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to create meeting session'
+      });
+    }
+
+  } catch (error) {
+    console.error('Create meeting error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Meeting creation failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+/**
+ * Add recording to a meeting session
+ */
+voiceNotesRoutes.post('/meetings/:meetingId/recordings', upload.single('audio'), async (req, res) => {
+  try {
+    const { meetingId } = req.params;
+    const { isFollowup } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    console.log(`Adding recording to meeting ${meetingId}: ${req.file.originalname}`);
+
+    const result = await VoiceNotesService.addToMeeting(
+      meetingId,
+      req.file.buffer,
+      req.file.originalname,
+      isFollowup === 'true'
+    );
+
+    if (result.success) {
+      const response: any = {
+        success: true,
+        message: 'Recording added to meeting successfully'
+      };
+
+      if (result.voiceNote) {
+        response.voiceNote = {
+          ...result.voiceNote,
+          audioUrl: `/api/voice-notes/audio/${result.voiceNote.filename}`
+        };
+      }
+
+      if (result.followupRecording) {
+        response.followupRecording = {
+          ...result.followupRecording,
+          audioUrl: `/api/voice-notes/audio/${result.followupRecording.filename}`
+        };
+      }
+
+      res.json(response);
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to add recording to meeting'
+      });
+    }
+
+  } catch (error) {
+    console.error('Add to meeting error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Add to meeting failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+/**
+ * Generate meeting summary
+ */
+voiceNotesRoutes.get('/meetings/:meetingId/summary', async (req, res) => {
+  try {
+    const { meetingId } = req.params;
+    
+    // Get all recordings for this meeting (this would typically query a database)
+    // For now, we'll return a placeholder
+    const allRecordings: any[] = [];
+    
+    const summary = await VoiceNotesService.generateMeetingSummary(meetingId, allRecordings);
+    
+    res.json({
+      success: true,
+      meetingId,
+      summary,
+      recordingCount: allRecordings.length
+    });
+
+  } catch (error) {
+    console.error('Generate meeting summary error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Meeting summary generation failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
