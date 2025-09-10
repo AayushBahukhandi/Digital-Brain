@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
-import { Play, Youtube, Instagram, Sparkles, Zap, Brain, ArrowRight } from 'lucide-react';
+import { Play, Youtube, Instagram, Twitter, Facebook, Sparkles, Zap, Brain, ArrowRight } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 
 export const Home = () => {
   const [url, setUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentPlatform, setCurrentPlatform] = useState<'youtube' | 'instagram' | null>(null);
+  const [currentPlatform, setCurrentPlatform] = useState<'youtube' | 'instagram' | 'x' | 'facebook' | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -20,7 +20,7 @@ export const Home = () => {
     if (!url.trim()) {
       toast({
         title: "URL Required",
-        description: "Please enter a YouTube or Instagram URL",
+        description: "Please enter a YouTube, Instagram, X (Twitter), or Facebook URL",
         variant: "destructive"
       });
       return;
@@ -29,25 +29,42 @@ export const Home = () => {
     // Check if URL is supported
     const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
     const isInstagram = url.includes('instagram.com');
+    const isX = url.includes('x.com') || url.includes('twitter.com');
+    const isFacebook = url.includes('facebook.com');
     
-    if (!isYoutube && !isInstagram) {
+    if (!isYoutube && !isInstagram && !isX && !isFacebook) {
       toast({
         title: "Unsupported URL",
-        description: "Please enter a valid YouTube or Instagram URL",
+        description: "Please enter a valid YouTube, Instagram, X (Twitter), or Facebook URL",
         variant: "destructive"
       });
       return;
     }
 
     // Set current platform for UI updates
-    setCurrentPlatform(isInstagram ? 'instagram' : 'youtube');
+    let platform: 'youtube' | 'instagram' | 'x' | 'facebook' = 'youtube';
+    if (isInstagram) platform = 'instagram';
+    else if (isX) platform = 'x';
+    else if (isFacebook) platform = 'facebook';
+    
+    setCurrentPlatform(platform);
     setIsProcessing(true);
     
-    // Show different loading message for Instagram
+    // Show different loading message for social media platforms
     if (isInstagram) {
       toast({
         title: "Processing Instagram Content",
-        description: "This may take 1 minute to complete. Please wait...",
+        description: "This may take 1-3 minutes to complete. Please wait...",
+      });
+    } else if (isX) {
+      toast({
+        title: "Processing X/Twitter Content",
+        description: "This may take 1-3 minutes to complete. Please wait...",
+      });
+    } else if (isFacebook) {
+      toast({
+        title: "Processing Facebook Content",
+        description: "This may take 1-3 minutes to complete. Please wait...",
       });
     }
     
@@ -69,7 +86,9 @@ export const Home = () => {
       const result = await response.json();
       
       const platform = result.platform || 'video';
-      const contentType = platform === 'instagram' ? 'Instagram content' : 'video';
+      const contentType = platform === 'instagram' ? 'Instagram content' : 
+                         platform === 'x' ? 'X/Twitter content' :
+                         platform === 'facebook' ? 'Facebook content' : 'video';
       
       if (result.message && result.message.includes('already processed')) {
         toast({
@@ -112,12 +131,18 @@ export const Home = () => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="text-center mb-16 animate-slide-up">
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl backdrop-blur-sm border border-white/10">
-              <Youtube className="h-8 w-8 text-primary" />
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl backdrop-blur-sm border border-white/10">
+              <Youtube className="h-7 w-7 text-primary" />
             </div>
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-secondary/20 to-accent/20 rounded-2xl backdrop-blur-sm border border-white/10">
-              <Instagram className="h-8 w-8 text-secondary" />
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-secondary/20 to-accent/20 rounded-2xl backdrop-blur-sm border border-white/10">
+              <Instagram className="h-7 w-7 text-secondary" />
+            </div>
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl backdrop-blur-sm border border-white/10">
+              <Twitter className="h-7 w-7 text-blue-400" />
+            </div>
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600/20 to-blue-700/20 rounded-2xl backdrop-blur-sm border border-white/10">
+              <Facebook className="h-7 w-7 text-blue-500" />
             </div>
           </div>
           
@@ -130,7 +155,7 @@ export const Home = () => {
           </h1>
           
           <p className="text-xl sm:text-2xl text-text-secondary max-w-3xl mx-auto leading-relaxed mb-8">
-            Transform YouTube videos and Instagram content into concise, searchable summaries using AI. 
+            Transform YouTube videos, Instagram content, X/Twitter posts, and Facebook videos into concise, searchable summaries using AI. 
             Get instant insights and chat with your content.
           </p>
 
@@ -160,18 +185,24 @@ export const Home = () => {
             <div className="relative bg-card/60 backdrop-blur-xl rounded-3xl border border-white/20 p-8 sm:p-12 shadow-2xl animate-slide-up hover:border-primary/30 transition-all duration-300">
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-3 mb-6">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary/30 to-secondary/30 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
-                    <Youtube className="h-8 w-8 text-primary" />
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary/30 to-secondary/30 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
+                    <Youtube className="h-7 w-7 text-primary" />
                   </div>
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-secondary/30 to-accent/30 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
-                    <Instagram className="h-8 w-8 text-secondary" />
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-secondary/30 to-accent/30 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
+                    <Instagram className="h-7 w-7 text-secondary" />
+                  </div>
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500/30 to-blue-600/30 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
+                    <Twitter className="h-7 w-7 text-blue-400" />
+                  </div>
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600/30 to-blue-700/30 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
+                    <Facebook className="h-7 w-7 text-blue-500" />
                   </div>
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-bold mb-4 bg-gradient-to-r from-text-primary to-primary bg-clip-text text-transparent">
                   Add Content to Summarize
                 </h2>
-                <p className="text-lg text-text-secondary max-w-md mx-auto">
-                  Paste your YouTube or Instagram URL below to get started with AI-powered summarization
+                <p className="text-lg text-text-secondary max-w-lg mx-auto">
+                  Paste your YouTube, Instagram, X (Twitter), or Facebook URL below to get started with AI-powered summarization
                 </p>
               </div>
               
@@ -181,7 +212,7 @@ export const Home = () => {
                   <div className="relative">
                     <Input
                       type="url"
-                      placeholder="https://www.youtube.com/watch?v=... or https://www.instagram.com/reel/..."
+                      placeholder="Paste YouTube, Instagram, X/Twitter, or Facebook URL here..."
                       value={url}
                       onChange={(e) => {
                         setUrl(e.target.value);
@@ -191,6 +222,10 @@ export const Home = () => {
                           setCurrentPlatform('instagram');
                         } else if (newUrl.includes('youtube.com') || newUrl.includes('youtu.be')) {
                           setCurrentPlatform('youtube');
+                        } else if (newUrl.includes('x.com') || newUrl.includes('twitter.com')) {
+                          setCurrentPlatform('x');
+                        } else if (newUrl.includes('facebook.com')) {
+                          setCurrentPlatform('facebook');
                         } else {
                           setCurrentPlatform(null);
                         }
@@ -203,10 +238,16 @@ export const Home = () => {
                         <div className="flex items-center gap-1 px-2 py-1 bg-primary/20 rounded-full">
                           {currentPlatform === 'instagram' ? (
                             <Instagram className="h-3 w-3 text-secondary" />
+                          ) : currentPlatform === 'x' ? (
+                            <Twitter className="h-3 w-3 text-blue-400" />
+                          ) : currentPlatform === 'facebook' ? (
+                            <Facebook className="h-3 w-3 text-blue-500" />
                           ) : (
                             <Youtube className="h-3 w-3 text-primary" />
                           )}
-                          <span className="text-xs text-text-primary capitalize">{currentPlatform}</span>
+                          <span className="text-xs text-text-primary capitalize">
+                            {currentPlatform === 'x' ? 'X' : currentPlatform}
+                          </span>
                         </div>
                       )}
                       {isProcessing && (
@@ -224,7 +265,10 @@ export const Home = () => {
                   {isProcessing ? (
                     <>
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent mr-4"></div>
-                      {currentPlatform === 'instagram' ? 'Processing Instagram Content (1 min)...' : 'Processing Content...'}
+                      {currentPlatform === 'instagram' ? 'Processing Instagram Content (1-3 min)...' : 
+                       currentPlatform === 'x' ? 'Processing X/Twitter Content (1-3 min)...' :
+                       currentPlatform === 'facebook' ? 'Processing Facebook Content (1-3 min)...' : 
+                       'Processing Content...'}
                     </>
                   ) : (
                     <>
@@ -250,7 +294,21 @@ export const Home = () => {
                       <>
                         <Instagram className="h-4 w-4 text-secondary" />
                         <p className="text-sm text-text-secondary">
-                          Instagram content detected • Processing takes 1 min
+                          Instagram content detected • Processing takes 1-3 min
+                        </p>
+                      </>
+                    ) : currentPlatform === 'x' ? (
+                      <>
+                        <Twitter className="h-4 w-4 text-blue-400" />
+                        <p className="text-sm text-text-secondary">
+                          X/Twitter content detected • Processing takes 1-3 min
+                        </p>
+                      </>
+                    ) : currentPlatform === 'facebook' ? (
+                      <>
+                        <Facebook className="h-4 w-4 text-blue-500" />
+                        <p className="text-sm text-text-secondary">
+                          Facebook content detected • Processing takes 1-3 min
                         </p>
                       </>
                     ) : (

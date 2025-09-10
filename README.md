@@ -1,12 +1,14 @@
 # Digital Brain
 
-AI-powered content summarizer for YouTube videos and Instagram content with intelligent chat functionality.
+AI-powered content summarizer for YouTube videos, Instagram content, X (Twitter) posts, and Facebook videos with intelligent chat functionality.
 
 ## Features
 
 - 🧠 **AI-Powered Summarization** - Transform long-form content into concise, actionable insights
 - 🎥 **YouTube Support** - Process any YouTube video URL
 - 📱 **Instagram Support** - Summarize Instagram Reels and posts
+- 🐦 **X (Twitter) Support** - Process X/Twitter video posts
+- 📘 **Facebook Support** - Summarize Facebook videos and content
 - 💬 **Smart Chat** - Ask questions about your summarized content
 - ⚡ **Fast Processing** - Get summaries in seconds to minutes
 - 🔍 **Searchable Notes** - Find and organize your content library
@@ -26,6 +28,8 @@ AI-powered content summarizer for YouTube videos and Instagram content with inte
 - SQLite database
 - YouTube Transcript API
 - Instagram content processing
+- X (Twitter) content processing
+- Facebook content processing
 
 ## Getting Started
 

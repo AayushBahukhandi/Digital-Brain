@@ -93,12 +93,16 @@ export class TranscriptService {
             console.log(`Extracting transcript for YouTube video ID: ${videoId}`);
         } else if (platform === 'instagram') {
             console.log(`Extracting transcript for Instagram URL: ${url}`);
+        } else if (platform === 'x') {
+            console.log(`Extracting transcript for X/Twitter URL: ${url}`);
+        } else if (platform === 'facebook') {
+            console.log(`Extracting transcript for Facebook URL: ${url}`);
         } else {
             return {
                 success: false,
                 transcript: '',
                 method: 'none',
-                error: 'Unsupported platform - only YouTube and Instagram are supported',
+                error: 'Unsupported platform - only YouTube, Instagram, X (Twitter), and Facebook are supported',
                 platform: 'unknown'
             };
         }
@@ -133,6 +137,10 @@ export class TranscriptService {
                 return await this.callYouTubeAPI(url);
             } else if (platform === 'instagram') {
                 return await this.callInstagramAPI(url);
+            } else if (platform === 'x') {
+                return await this.callTwitterAPI(url);
+            } else if (platform === 'facebook') {
+                return await this.callFacebookAPI(url);
             } else {
                 throw new Error(`Unsupported platform: ${platform}`);
             }
@@ -295,6 +303,224 @@ export class TranscriptService {
     }
 
     /**
+     * Call Twitter/X transcript API using Dictationer (same as Instagram)
+     */
+    private static async callTwitterAPI(url: string): Promise<TranscriptResult> {
+        const headers = {
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGJlZjQ4ZGJmYjc4MDlhNTgzZjFjNTEiLCJ1c2VyQ29kZSI6ImVjYmE3NzNjLWJiMzctNGM0ZS1iZWRkLTE0MGRmOTY0ZTE1NiIsImVtYWlsIjoiaGFkb2JpODQzNkBuY2llbi5jb20iLCJpYXQiOjE3NTczNDUwNjYsImV4cCI6MTc1OTkzNzA2Nn0.wHVuiVVANligb9wofxmZNqT5dqU-avYtci-FBOaKvtk',
+            'Content-Type': 'application/json',
+            'x-api-key': '!apisuperSecreatApI13@'
+        };
+
+        // Step 1: Add transcription job
+        console.log('Adding X/Twitter transcription job...');
+
+        const addJobResponse = await axios.post('https://api.dictationer.com/queue/addTranscriptionJob', {
+            userId: "68bef48dbfb7809a583f1c51",
+            fileType: "youtubeLink",
+            youtubeLink: url,
+            duration: 60,
+            cost: 1,
+            targetLanguage: "en",
+            originalLanguage: "en",
+            countryCode: "IN",
+            processingOptions: {
+                includeVideoEditing: false,
+                includeTranslation: false,
+                includeSummary: false,
+                includeDiagram: false,
+                includeOriginalLanguage: false
+            },
+            isPremiumUser: true
+        }, {
+            headers,
+            timeout: 30000
+        });
+
+        const addJobData = addJobResponse.data as DictationerJobResponse;
+        if (!addJobData || !addJobData._id) {
+            throw new Error('Failed to create X/Twitter transcription job');
+        }
+
+        const jobId = addJobData._id;
+        console.log(`X/Twitter transcription job created with ID: ${jobId}`);
+
+        // Step 2: Poll for completion
+        let attempts = 0;
+        const maxAttempts = 60; // 3 minutes max (60 * 3 seconds)
+
+        while (attempts < maxAttempts) {
+            console.log(`Polling X/Twitter job status (attempt ${attempts + 1}/${maxAttempts})...`);
+
+            try {
+                const statusResponse = await axios.post('https://api.dictationer.com/job/getJobDataById', {
+                    jobId: jobId
+                }, {
+                    headers,
+                    timeout: 10000
+                });
+
+                const jobData = statusResponse.data as DictationerJobResponse;
+
+                if (jobData && jobData.progress) {
+                    console.log(`X/Twitter job progress: ${jobData.progress.percentage}% - ${jobData.progress.message}`);
+
+                    if (jobData.progress.percentage === 100) {
+                        // Job completed, extract transcript
+                        if (jobData.tracks && jobData.tracks.length > 0) {
+                            const transcript = jobData.tracks[0].text || '';
+                            const title = jobData.fileName || 'X/Twitter Post';
+
+                            if (transcript.length < 10) {
+                                throw new Error('Transcript too short - may be invalid');
+                            }
+
+                            console.log(`✓ X/Twitter transcription completed: ${transcript.length} chars`);
+
+                            return {
+                                success: true,
+                                transcript,
+                                method: 'dictationer-api',
+                                title,
+                                captions: undefined,
+                                platform: 'x'
+                            };
+                        } else {
+                            throw new Error('No transcript tracks found in completed X/Twitter job');
+                        }
+                    }
+                }
+
+                // Wait 3 seconds before next poll
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                attempts++;
+
+            } catch (pollError) {
+                console.log(`X/Twitter polling error (attempt ${attempts + 1}): ${pollError instanceof Error ? pollError.message : 'Unknown error'}`);
+                attempts++;
+
+                if (attempts >= maxAttempts) {
+                    throw new Error('X/Twitter transcription job polling failed after maximum attempts');
+                }
+
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+
+        throw new Error('X/Twitter transcription job timed out - took longer than expected to complete');
+    }
+
+    /**
+     * Call Facebook transcript API using Dictationer (same as Instagram)
+     */
+    private static async callFacebookAPI(url: string): Promise<TranscriptResult> {
+        const headers = {
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGJlZjQ4ZGJmYjc4MDlhNTgzZjFjNTEiLCJ1c2VyQ29kZSI6ImVjYmE3NzNjLWJiMzctNGM0ZS1iZWRkLTE0MGRmOTY0ZTE1NiIsImVtYWlsIjoiaGFkb2JpODQzNkBuY2llbi5jb20iLCJpYXQiOjE3NTczNDUwNjYsImV4cCI6MTc1OTkzNzA2Nn0.wHVuiVVANligb9wofxmZNqT5dqU-avYtci-FBOaKvtk',
+            'Content-Type': 'application/json',
+            'x-api-key': '!apisuperSecreatApI13@'
+        };
+
+        // Step 1: Add transcription job
+        console.log('Adding Facebook transcription job...');
+
+        const addJobResponse = await axios.post('https://api.dictationer.com/queue/addTranscriptionJob', {
+            userId: "68bef48dbfb7809a583f1c51",
+            fileType: "youtubeLink",
+            youtubeLink: url,
+            duration: 60,
+            cost: 1,
+            targetLanguage: "en",
+            originalLanguage: "en",
+            countryCode: "IN",
+            processingOptions: {
+                includeVideoEditing: false,
+                includeTranslation: false,
+                includeSummary: false,
+                includeDiagram: false,
+                includeOriginalLanguage: false
+            },
+            isPremiumUser: true
+        }, {
+            headers,
+            timeout: 30000
+        });
+
+        const addJobData = addJobResponse.data as DictationerJobResponse;
+        if (!addJobData || !addJobData._id) {
+            throw new Error('Failed to create Facebook transcription job');
+        }
+
+        const jobId = addJobData._id;
+        console.log(`Facebook transcription job created with ID: ${jobId}`);
+
+        // Step 2: Poll for completion
+        let attempts = 0;
+        const maxAttempts = 60; // 3 minutes max (60 * 3 seconds)
+
+        while (attempts < maxAttempts) {
+            console.log(`Polling Facebook job status (attempt ${attempts + 1}/${maxAttempts})...`);
+
+            try {
+                const statusResponse = await axios.post('https://api.dictationer.com/job/getJobDataById', {
+                    jobId: jobId
+                }, {
+                    headers,
+                    timeout: 10000
+                });
+
+                const jobData = statusResponse.data as DictationerJobResponse;
+
+                if (jobData && jobData.progress) {
+                    console.log(`Facebook job progress: ${jobData.progress.percentage}% - ${jobData.progress.message}`);
+
+                    if (jobData.progress.percentage === 100) {
+                        // Job completed, extract transcript
+                        if (jobData.tracks && jobData.tracks.length > 0) {
+                            const transcript = jobData.tracks[0].text || '';
+                            const title = jobData.fileName || 'Facebook Video';
+
+                            if (transcript.length < 10) {
+                                throw new Error('Transcript too short - may be invalid');
+                            }
+
+                            console.log(`✓ Facebook transcription completed: ${transcript.length} chars`);
+
+                            return {
+                                success: true,
+                                transcript,
+                                method: 'dictationer-api',
+                                title,
+                                captions: undefined,
+                                platform: 'facebook'
+                            };
+                        } else {
+                            throw new Error('No transcript tracks found in completed Facebook job');
+                        }
+                    }
+                }
+
+                // Wait 3 seconds before next poll
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                attempts++;
+
+            } catch (pollError) {
+                console.log(`Facebook polling error (attempt ${attempts + 1}): ${pollError instanceof Error ? pollError.message : 'Unknown error'}`);
+                attempts++;
+
+                if (attempts >= maxAttempts) {
+                    throw new Error('Facebook transcription job polling failed after maximum attempts');
+                }
+
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+
+        throw new Error('Facebook transcription job timed out - took longer than expected to complete');
+    }
+
+    /**
      * Convert captions array to plain text transcript
      */
     private static convertCaptionsToText(captions: CaptionItem[]): string {
@@ -366,6 +592,10 @@ export class TranscriptService {
             return 'youtube';
         } else if (url.includes('instagram.com')) {
             return 'instagram';
+        } else if (url.includes('x.com') || url.includes('twitter.com')) {
+            return 'x';
+        } else if (url.includes('facebook.com')) {
+            return 'facebook';
         }
         return 'unknown';
     }
@@ -400,6 +630,49 @@ export class TranscriptService {
             /(?:instagram\.com\/reel\/)([^/?#]+)/,
             /(?:instagram\.com\/p\/)([^/?#]+)/,
             /(?:instagram\.com\/tv\/)([^/?#]+)/
+        ];
+
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                return match[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract Twitter/X post ID from URL
+     */
+    static extractTwitterId(url: string): string | null {
+        const patterns = [
+            /(?:x\.com\/\w+\/status\/)(\d+)/,
+            /(?:twitter\.com\/\w+\/status\/)(\d+)/,
+            /(?:x\.com\/i\/status\/)(\d+)/,
+            /(?:twitter\.com\/i\/status\/)(\d+)/
+        ];
+
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                return match[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract Facebook video ID from URL
+     */
+    static extractFacebookId(url: string): string | null {
+        const patterns = [
+            /(?:facebook\.com\/watch\/?\?v=)(\d+)/,
+            /(?:facebook\.com\/.*\/videos\/)(\d+)/,
+            /(?:facebook\.com\/video\.php\?v=)(\d+)/,
+            /(?:facebook\.com\/share\/v\/)([^/?#]+)/,
+            /(?:facebook\.com\/reel\/)(\d+)/
         ];
 
         for (const pattern of patterns) {

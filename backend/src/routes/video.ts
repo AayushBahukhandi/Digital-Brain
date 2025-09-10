@@ -8,9 +8,11 @@ export const videoRoutes = Router();
 
 const videoSchema = z.object({
   url: z.string().url().refine((url) => {
-    return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('instagram.com');
+    return url.includes('youtube.com') || url.includes('youtu.be') || 
+           url.includes('instagram.com') || url.includes('x.com') || 
+           url.includes('twitter.com') || url.includes('facebook.com');
   }, {
-    message: "URL must be from YouTube or Instagram"
+    message: "URL must be from YouTube, Instagram, X (Twitter), or Facebook"
   }),
 });
 
@@ -33,8 +35,18 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       if (!contentId) {
         return res.status(400).json({ error: 'Invalid Instagram URL' });
       }
+    } else if (platform === 'x' || platform === 'twitter') {
+      contentId = TranscriptService.extractTwitterId(url);
+      if (!contentId) {
+        return res.status(400).json({ error: 'Invalid X/Twitter URL' });
+      }
+    } else if (platform === 'facebook') {
+      contentId = TranscriptService.extractFacebookId(url);
+      if (!contentId) {
+        return res.status(400).json({ error: 'Invalid Facebook URL' });
+      }
     } else {
-      return res.status(400).json({ error: 'Unsupported platform - only YouTube and Instagram are supported' });
+      return res.status(400).json({ error: 'Unsupported platform - only YouTube, Instagram, X (Twitter), and Facebook are supported' });
     }
 
     // Check if video already exists (check by content ID, not URL)
@@ -69,7 +81,10 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
     const transcriptResult = await TranscriptService.extractTranscript(url);
     let fullTranscript = '';
     let summary = '';
-    let contentTitle = `${platform === 'youtube' ? 'Video' : 'Instagram Content'} ${contentId}`;
+    let contentTitle = `${platform === 'youtube' ? 'Video' : 
+                        platform === 'instagram' ? 'Instagram Content' :
+                        platform === 'x' || platform === 'twitter' ? 'X Post' :
+                        platform === 'facebook' ? 'Facebook Video' : 'Content'} ${contentId}`;
     let autoTags: string[] = [];
     
     if (transcriptResult.success) {
@@ -99,7 +114,7 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       console.log(`✓ Auto-generated tags: ${autoTags.join(', ')}`);
     } else {
       fullTranscript = `No transcript available for this ${platform} content (${contentId}). ${transcriptResult.error || 'Unknown error'}`;
-      summary = 'Unable to generate summary - no content available. This content may not have captions enabled or may be restricted.';
+      summary = `Unable to generate summary - no content available. This ${platform} content may not have captions enabled or may be restricted.`;
       console.log(`✗ External API failed for ${contentId}: ${transcriptResult.error}`);
     }
     
@@ -128,7 +143,9 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
         tags: autoTags,
         platform,
         contentId,
-        note: platform === 'instagram' ? 'Instagram content processed successfully' : undefined
+        note: platform === 'instagram' ? 'Instagram content processed successfully' : 
+              platform === 'x' || platform === 'twitter' ? 'X/Twitter content processed successfully' :
+              platform === 'facebook' ? 'Facebook content processed successfully' : undefined
       });
     });
     
@@ -307,6 +324,10 @@ videoRoutes.post('/debug-transcript', async (req, res) => {
       contentId = TranscriptService.extractVideoId(url);
     } else if (platform === 'instagram') {
       contentId = TranscriptService.extractInstagramId(url);
+    } else if (platform === 'x' || platform === 'twitter') {
+      contentId = TranscriptService.extractTwitterId(url);
+    } else if (platform === 'facebook') {
+      contentId = TranscriptService.extractFacebookId(url);
     }
     
     if (!contentId) {
@@ -330,7 +351,9 @@ videoRoutes.post('/debug-transcript', async (req, res) => {
         method: result.method,
         summary: summary.length > 200 ? summary.substring(0, 200) + '...' : summary,
         autoTags,
-        note: platform === 'instagram' ? 'Instagram transcription may take 1-3 minutes to complete' : undefined
+        note: platform === 'instagram' ? 'Instagram transcription may take 1-3 minutes to complete' :
+              platform === 'x' || platform === 'twitter' ? 'X/Twitter transcription may take 1-3 minutes to complete' :
+              platform === 'facebook' ? 'Facebook transcription may take 1-3 minutes to complete' : undefined
       });
     } else {
       res.status(400).json({
@@ -394,6 +417,10 @@ videoRoutes.post('/extract-transcript', async (req, res) => {
         contentId = TranscriptService.extractVideoId(url);
       } else if (platform === 'instagram') {
         contentId = TranscriptService.extractInstagramId(url);
+      } else if (platform === 'x' || platform === 'twitter') {
+        contentId = TranscriptService.extractTwitterId(url);
+      } else if (platform === 'facebook') {
+        contentId = TranscriptService.extractFacebookId(url);
       }
       
       res.json({
@@ -544,6 +571,88 @@ videoRoutes.post('/test-instagram', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Instagram API test failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+// Test X/Twitter API endpoint
+videoRoutes.post('/test-twitter', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url || (!url.includes('x.com') && !url.includes('twitter.com'))) {
+      return res.status(400).json({ error: 'Please provide a valid X/Twitter URL' });
+    }
+
+    console.log(`Testing X/Twitter API with URL: ${url}`);
+    
+    const result = await TranscriptService.extractTranscript(url);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        platform: result.platform,
+        transcriptLength: result.transcript.length,
+        preview: result.transcript.substring(0, 300) + '...',
+        title: result.title,
+        method: result.method,
+        message: 'X/Twitter transcription test successful'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        method: result.method,
+        platform: result.platform
+      });
+    }
+    
+  } catch (error) {
+    console.error('X/Twitter API test error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'X/Twitter API test failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+// Test Facebook API endpoint
+videoRoutes.post('/test-facebook', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url || !url.includes('facebook.com')) {
+      return res.status(400).json({ error: 'Please provide a valid Facebook URL' });
+    }
+
+    console.log(`Testing Facebook API with URL: ${url}`);
+    
+    const result = await TranscriptService.extractTranscript(url);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        platform: result.platform,
+        transcriptLength: result.transcript.length,
+        preview: result.transcript.substring(0, 300) + '...',
+        title: result.title,
+        method: result.method,
+        message: 'Facebook transcription test successful'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        method: result.method,
+        platform: result.platform
+      });
+    }
+    
+  } catch (error) {
+    console.error('Facebook API test error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Facebook API test failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
     });
   }
 });

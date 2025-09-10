@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input';
 import { VoiceSelector } from '../components/VoiceSelector';
 import { useToast } from '../hooks/use-toast';
 import { useTTS } from '../hooks/use-tts';
-import { ArrowLeft, ExternalLink, ChevronDown, ChevronUp, Tag, Plus, X, Youtube, Instagram, RefreshCw, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, ChevronDown, ChevronUp, Tag, Plus, X, Youtube, Instagram, Twitter, Facebook, RefreshCw, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { getVideoEndpoint, getVideoTagsEndpoint, getVideoTitleEndpoint, getVideoRegenerateTagsEndpoint } from '../config/api';
 
 interface Video {
@@ -218,18 +218,26 @@ export const Notes = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             {video.platform === 'instagram' ? (
               <Instagram className="h-8 w-8 text-secondary" />
+            ) : video.platform === 'x' ? (
+              <Twitter className="h-8 w-8 text-blue-400" />
+            ) : video.platform === 'facebook' ? (
+              <Facebook className="h-8 w-8 text-blue-500" />
             ) : (
               <Youtube className="h-8 w-8 text-primary" />
             )}
             <span className="text-sm text-text-secondary capitalize">
-              {video.platform || 'youtube'} content
+              {video.platform === 'x' ? 'X/Twitter' : video.platform || 'youtube'} content
             </span>
           </div>
           <h1 className="text-h1 mb-4 bg-gradient-to-r from-text-primary via-primary to-secondary bg-clip-text text-transparent">
-            {video.title || `${video.platform === 'instagram' ? 'Instagram Content' : 'Video'} ${video.id}`}
+            {video.title || `${video.platform === 'instagram' ? 'Instagram Content' : 
+                                video.platform === 'x' ? 'X/Twitter Post' :
+                                video.platform === 'facebook' ? 'Facebook Video' : 'Video'} ${video.id}`}
           </h1>
           <p className="text-xl text-text-secondary">
-            {video.platform === 'instagram' ? 'Instagram content' : 'Video'} transcript and summary
+            {video.platform === 'instagram' ? 'Instagram content' : 
+             video.platform === 'x' ? 'X/Twitter content' :
+             video.platform === 'facebook' ? 'Facebook content' : 'Video'} transcript and summary
           </p>
         </div>
       </div>
@@ -333,10 +341,16 @@ export const Notes = () => {
                 <div className="flex items-center gap-2">
                   {video.platform === 'instagram' ? (
                     <Instagram className="h-4 w-4 text-secondary" />
+                  ) : video.platform === 'x' ? (
+                    <Twitter className="h-4 w-4 text-blue-400" />
+                  ) : video.platform === 'facebook' ? (
+                    <Facebook className="h-4 w-4 text-blue-500" />
                   ) : (
                     <Youtube className="h-4 w-4 text-primary" />
                   )}
-                  <span className="text-text-primary capitalize">{video.platform || 'youtube'}</span>
+                  <span className="text-text-primary capitalize">
+                    {video.platform === 'x' ? 'X/Twitter' : video.platform || 'youtube'}
+                  </span>
                 </div>
               </div>
               
@@ -354,7 +368,9 @@ export const Notes = () => {
                     </Button>
                   )}
                 </div>
-                <p className="text-text-primary">{video.title || `Untitled ${video.platform === 'instagram' ? 'Content' : 'Video'}`}</p>
+                <p className="text-text-primary">{video.title || `Untitled ${video.platform === 'instagram' ? 'Content' : 
+                                                                                    video.platform === 'x' ? 'Post' :
+                                                                                    video.platform === 'facebook' ? 'Video' : 'Video'}`}</p>
               </div>
               
               <div>
@@ -462,7 +478,9 @@ export const Notes = () => {
                 className="w-full bg-secondary/20 border-secondary/50 hover:bg-secondary/30"
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                {video.platform === 'instagram' ? 'View Content' : 'Watch Video'}
+                {video.platform === 'instagram' ? 'View Content' : 
+                 video.platform === 'x' ? 'View Post' :
+                 video.platform === 'facebook' ? 'View Video' : 'Watch Video'}
               </Button>
               <Button
                 variant="outline"
