@@ -5,6 +5,7 @@ import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { Brain, Eye, EyeOff } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 export const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -29,8 +30,8 @@ export const Login = () => {
 
     setIsLoading(true);
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const response = await fetch(`http://localhost:3001${endpoint}`, {
+      const endpoint = isLogin ? API_ENDPOINTS.LOGIN : API_ENDPOINTS.REGISTER;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

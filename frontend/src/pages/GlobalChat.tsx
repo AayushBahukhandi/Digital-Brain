@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
 import { MessageCircle, Send, ArrowLeft, Video, Trash2 } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 interface ChatMessage {
   id: number;
@@ -40,7 +41,7 @@ export const GlobalChat = () => {
   const fetchChatMessages = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/chat/global`, {
+      const response = await fetch(API_ENDPOINTS.GLOBAL_CHAT, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -63,7 +64,7 @@ export const GlobalChat = () => {
     setIsSendingMessage(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/chat/global`, {
+      const response = await fetch(API_ENDPOINTS.GLOBAL_CHAT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +97,7 @@ export const GlobalChat = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/chat/global`, {
+      const response = await fetch(API_ENDPOINTS.GLOBAL_CHAT, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

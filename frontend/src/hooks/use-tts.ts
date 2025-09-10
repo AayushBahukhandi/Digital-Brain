@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useToast } from './use-toast';
+import { API_ENDPOINTS, getTTSConvertSummaryEndpoint, getAudioUrl } from '../config/api';
 
 export interface TTSOptions {
   voice?: string;
@@ -63,7 +64,7 @@ export const useTTS = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/tts/convert', {
+      const response = await fetch(API_ENDPOINTS.TTS_CONVERT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +83,7 @@ export const useTTS = () => {
       const result = await response.json();
       
       if (result.success && result.audioUrl) {
-        await playAudio(`http://localhost:3001${result.audioUrl}`);
+        await playAudio(getAudioUrl(result.audioUrl));
       } else {
         throw new Error('Invalid TTS response');
       }
@@ -107,7 +108,7 @@ export const useTTS = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/tts/convert-summary/${videoId}`, {
+      const response = await fetch(getTTSConvertSummaryEndpoint(videoId), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ export const useTTS = () => {
       const result = await response.json();
       
       if (result.success && result.audioUrl) {
-        await playAudio(`http://localhost:3001${result.audioUrl}`);
+        await playAudio(getAudioUrl(result.audioUrl));
         
         toast({
           title: "Playing Summary",
@@ -160,7 +161,7 @@ export const useTTS = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/tts/test', {
+      const response = await fetch(API_ENDPOINTS.TTS_TEST, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +176,7 @@ export const useTTS = () => {
       const result = await response.json();
       
       if (result.success && result.audioUrl) {
-        await playAudio(`http://localhost:3001${result.audioUrl}`);
+        await playAudio(getAudioUrl(result.audioUrl));
         
         toast({
           title: "TTS Test",

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { useToast } from '../hooks/use-toast';
 import { ChevronDown, Volume2, Loader2 } from 'lucide-react';
+import { API_ENDPOINTS, getAudioUrl } from '../config/api';
 
 interface Voice {
   id: string;
@@ -35,7 +36,7 @@ export const VoiceSelector = ({
 
   const fetchVoices = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/tts/voices');
+      const response = await fetch(API_ENDPOINTS.TTS_VOICES);
       if (response.ok) {
         const data = await response.json();
         setVoices(data.voices || []);
@@ -74,7 +75,7 @@ export const VoiceSelector = ({
     setTestingVoice(voiceId);
     
     try {
-      const response = await fetch('http://localhost:3001/api/tts/convert', {
+      const response = await fetch(API_ENDPOINTS.TTS_CONVERT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,7 +89,7 @@ export const VoiceSelector = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.audioUrl) {
-          const audio = new Audio(`http://localhost:3001${result.audioUrl}`);
+          const audio = new Audio(getAudioUrl(result.audioUrl));
           await audio.play();
         }
       }

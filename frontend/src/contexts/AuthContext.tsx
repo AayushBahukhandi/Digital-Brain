@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 interface User {
   id: number;
@@ -57,7 +58,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const verifyToken = async (tokenToVerify: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/verify', {
+      const response = await fetch(API_ENDPOINTS.VERIFY, {
         headers: {
           'Authorization': `Bearer ${tokenToVerify}`
         }

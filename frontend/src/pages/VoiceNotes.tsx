@@ -5,6 +5,7 @@ import { VoiceSelector } from '../components/VoiceSelector';
 import { useToast } from '../hooks/use-toast';
 import { useTTS } from '../hooks/use-tts';
 import { Mic, MicOff, Upload, Play, Pause, Trash2, Volume2, VolumeX, Loader2, FileAudio } from 'lucide-react';
+import { API_ENDPOINTS, getVoiceNoteEndpoint, getAudioUrl } from '../config/api';
 
 interface VoiceNote {
   id: string;
@@ -38,7 +39,7 @@ export const VoiceNotes = () => {
 
   const fetchVoiceNotes = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/voice-notes');
+      const response = await fetch(API_ENDPOINTS.VOICE_NOTES);
       if (response.ok) {
         const data = await response.json();
         setVoiceNotes(data);
@@ -120,7 +121,7 @@ export const VoiceNotes = () => {
       const formData = new FormData();
       formData.append('audio', audioBlob, filename);
 
-      const response = await fetch('http://localhost:3001/api/voice-notes/upload', {
+      const response = await fetch(API_ENDPOINTS.VOICE_NOTES_UPLOAD, {
         method: 'POST',
         body: formData,
       });
@@ -158,7 +159,7 @@ export const VoiceNotes = () => {
 
   const deleteVoiceNote = async (noteId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/voice-notes/${noteId}`, {
+      const response = await fetch(getVoiceNoteEndpoint(noteId), {
         method: 'DELETE',
       });
 
@@ -408,7 +409,7 @@ export const VoiceNotes = () => {
               {/* Hidden audio element */}
               <audio
                 id={`audio-${note.id}`}
-                src={`http://localhost:3001${note.audioUrl}`}
+                src={getAudioUrl(note.audioUrl)}
                 onEnded={handleAudioEnded}
                 preload="none"
               />

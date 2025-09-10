@@ -6,6 +6,7 @@ import { VoiceSelector } from '../components/VoiceSelector';
 import { useToast } from '../hooks/use-toast';
 import { useTTS } from '../hooks/use-tts';
 import { ArrowLeft, ExternalLink, ChevronDown, ChevronUp, Tag, Plus, X, Youtube, Instagram, RefreshCw, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { getVideoEndpoint, getVideoTagsEndpoint, getVideoTitleEndpoint, getVideoRegenerateTagsEndpoint } from '../config/api';
 
 interface Video {
   id: number;
@@ -37,9 +38,11 @@ export const Notes = () => {
   }, [videoId]);
 
   const fetchVideoData = async () => {
+    if (!videoId) return;
+    
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos/${videoId}`, {
+      const response = await fetch(getVideoEndpoint(videoId), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -66,7 +69,7 @@ export const Notes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos/${video.id}/tags`, {
+      const response = await fetch(getVideoTagsEndpoint(video.id.toString()), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +114,7 @@ export const Notes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos/${video.id}/title`, {
+      const response = await fetch(getVideoTitleEndpoint(video.id.toString()), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +148,7 @@ export const Notes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos/${video.id}/regenerate-tags`, {
+      const response = await fetch(getVideoRegenerateTagsEndpoint(video.id.toString()), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

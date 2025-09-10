@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
 import { Play, Youtube, Instagram, Sparkles, Zap, Brain, ArrowRight } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 
 export const Home = () => {
@@ -52,7 +53,7 @@ export const Home = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos/process`, {
+      const response = await fetch(API_ENDPOINTS.PROCESS_VIDEO, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

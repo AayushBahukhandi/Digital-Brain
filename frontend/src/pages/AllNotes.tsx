@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
 import { FileText, Search, Calendar, ArrowLeft, ExternalLink, Plus, Trash2, ChevronLeft, ChevronRight, Youtube, Instagram } from 'lucide-react';
+import { API_ENDPOINTS, getVideoEndpoint } from '../config/api';
 
 interface Video {
   id: number;
@@ -37,7 +38,7 @@ export const AllNotes = () => {
   const fetchAllVideos = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos`, {
+      const response = await fetch(API_ENDPOINTS.VIDEOS, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -81,7 +82,7 @@ export const AllNotes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/videos/${videoId}`, {
+      const response = await fetch(getVideoEndpoint(videoId.toString()), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
