@@ -73,7 +73,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+const port = Number(PORT);
+
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server running on port ${port}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 });
