@@ -4,9 +4,8 @@ FROM node:20-alpine
 # Install build tools for native modules and audio processing
 RUN apk add --no-cache python3 make g++ sox ffmpeg espeak espeak-dev py3-pip
 
-# Install Python dependencies for TTS using virtual environment
-RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir piper-tts
+# Create virtual environment for potential future Python packages
+RUN python3 -m venv /opt/venv
 
 # Install dependencies for backend
 WORKDIR /app/backend
@@ -35,12 +34,8 @@ RUN cp -r dist/* /app/backend/public/
 # Set working directory back to backend
 WORKDIR /app/backend
 
-# Create TTS models directory and download models
+# Create TTS models directory for future use
 RUN mkdir -p tts-models
-
-# Download TTS models (using a lightweight model for Railway)
-RUN python3 -m piper.download --model en_US-lessac-medium --output_dir tts-models/ || \
-    echo "Model download failed, will use fallback"
 
 # Set environment variables
 ENV OPENROUTER_API_KEY=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
