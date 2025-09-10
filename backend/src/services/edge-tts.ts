@@ -131,10 +131,10 @@ export class EdgeTTSService {
       for (const cmd of edgeTTSCommands) {
         if (cmd.includes('python3')) {
           edgeTTSCommand = 'python3';
-          edgeTTSArgs = ['-m', 'edge_tts', '--voice', voice, '--rate', rate, '--pitch', pitch, '--file', outputPath, '--text', text];
+          edgeTTSArgs = ['-m', 'edge_tts', '--voice', voice, '--rate', rate, '--pitch', pitch, '--text', text, '--write-media', outputPath];
         } else {
           edgeTTSCommand = cmd;
-          edgeTTSArgs = ['--voice', voice, '--rate', rate, '--pitch', pitch, '--file', outputPath, '--text', text];
+          edgeTTSArgs = ['--voice', voice, '--rate', rate, '--pitch', pitch, '--text', text, '--write-media', outputPath];
         }
         break; // Use first available command
       }
