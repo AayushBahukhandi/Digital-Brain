@@ -4,8 +4,10 @@ FROM node:20-alpine
 # Install build tools for native modules and audio processing
 RUN apk add --no-cache python3 make g++ sox ffmpeg espeak espeak-dev py3-pip
 
-# Create virtual environment for potential future Python packages
-RUN python3 -m venv /opt/venv
+# Create virtual environment and install Edge TTS
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --no-cache-dir edge-tts
 
 # Install dependencies for backend
 WORKDIR /app/backend

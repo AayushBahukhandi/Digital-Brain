@@ -81,10 +81,10 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
     const transcriptResult = await TranscriptService.extractTranscript(url);
     let fullTranscript = '';
     let summary = '';
-    let contentTitle = `${platform === 'youtube' ? 'Video' : 
+    let contentTitle = `Untitled ${platform === 'youtube' ? 'YouTube Video' : 
                         platform === 'instagram' ? 'Instagram Content' :
                         platform === 'x' || platform === 'twitter' ? 'X Post' :
-                        platform === 'facebook' ? 'Facebook Video' : 'Content'} ${contentId}`;
+                        platform === 'facebook' ? 'Facebook Video' : 'Content'}`;
     let autoTags: string[] = [];
     
     if (transcriptResult.success) {

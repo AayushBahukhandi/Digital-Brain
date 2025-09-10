@@ -98,7 +98,7 @@ ttsRoutes.get('/audio/:filename', async (req, res) => {
     try {
         const { filename } = req.params;
         // Validate filename to prevent directory traversal
-        if (!filename.match(/^tts_\d+\.wav$/)) {
+        if (!filename.match(/^(tts_|edge_tts_)\d+\.wav$/)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
         const audioPath = path.join(process.cwd(), 'audio-output', filename);
@@ -139,49 +139,26 @@ ttsRoutes.get('/audio/:filename', async (req, res) => {
     }
 });
 /**
- * Get available voices
+ * Get available voices (Edge TTS voices)
  */
 ttsRoutes.get('/voices', async (req, res) => {
     try {
         const voices = await TTSService.getAvailableVoices();
-        // Add friendly names and descriptions for voices
-        const voiceInfo = voices.map(voice => {
-            const info = { id: voice, name: voice };
-            switch (voice) {
-                case 'en_US-lessac-medium':
-                    info.name = 'Lessac (Medium)';
-                    info.description = 'Clear, professional voice';
-                    info.gender = 'male';
-                    break;
-                case 'en_US-amy-medium':
-                    info.name = 'Amy (Medium)';
-                    info.description = 'Warm, friendly female voice';
-                    info.gender = 'female';
-                    break;
-                case 'en_US-ryan-high':
-                    info.name = 'Ryan (High Quality)';
-                    info.description = 'Natural, expressive male voice';
-                    info.gender = 'male';
-                    break;
-                case 'en_US-libritts-high':
-                    info.name = 'LibriTTS (High Quality)';
-                    info.description = 'Multi-speaker, high quality voice';
-                    info.gender = 'various';
-                    break;
-                default:
-                    info.description = 'Text-to-speech voice';
-                    info.gender = 'unknown';
-            }
-            return info;
-        });
         res.json({
-            voices: voiceInfo,
-            default: 'en_US-lessac-medium'
+            voices: voices,
+            default: 'en-US-AriaNeural',
+            message: 'Edge TTS voices with character and personality'
         });
     }
     catch (error) {
         console.error('Get voices error:', error);
-        res.status(500).json({ error: 'Failed to get available voices' });
+        // Fallback to popular voices
+        const popularVoices = TTSService.getPopularVoices();
+        res.json({
+            voices: popularVoices,
+            default: 'en-US-AriaNeural',
+            message: 'Popular Edge TTS voices (cached)'
+        });
     }
 });
 /**

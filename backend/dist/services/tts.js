@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { EdgeTTSService } from './edge-tts.js';
 export class TTSService {
     /**
      * Initialize TTS service - create output directory
@@ -16,55 +17,26 @@ export class TTSService {
         }
     }
     /**
-     * Convert text to speech using Piper TTS
+     * Convert text to speech using Edge TTS (primary) with fallbacks
      */
     static async textToSpeech(text, options = {}) {
         try {
-            const voice = options.voice || this.DEFAULT_VOICE;
-            const modelPath = path.join(this.MODELS_DIR, `${voice}.onnx`);
-            const configPath = path.join(this.MODELS_DIR, `${voice}.onnx.json`);
-            // Check if model files exist
-            let modelExists = false;
-            try {
-                await fs.access(modelPath);
-                await fs.access(configPath);
-                modelExists = true;
+            // Try Edge TTS first (best quality)
+            console.log('Trying Edge TTS...');
+            const edgeResult = await EdgeTTSService.textToSpeech(text, {
+                voice: options.voice || 'en-US-AriaNeural',
+                outputPath: options.outputPath
+            });
+            if (edgeResult.success) {
+                console.log('✓ Edge TTS successful');
+                return edgeResult;
             }
-            catch {
-                console.log(`Model files not found for ${voice}, trying fallback...`);
-            }
-            // Generate unique filename
+            console.log('Edge TTS failed, trying system TTS...');
+            // Fallback to system TTS
             const timestamp = Date.now();
             const filename = `tts_${timestamp}.wav`;
             const outputPath = options.outputPath || path.join(this.OUTPUT_DIR, filename);
-            // If model doesn't exist, try to use a fallback or create a simple audio file
-            if (!modelExists) {
-                return await this.createFallbackAudio(text, outputPath);
-            }
-            // Clean text for TTS
-            const cleanText = this.cleanTextForTTS(text);
-            if (cleanText.length === 0) {
-                return {
-                    success: false,
-                    error: 'No valid text content to convert to speech'
-                };
-            }
-            console.log(`Converting text to speech: ${cleanText.substring(0, 100)}...`);
-            // Run Piper TTS
-            const success = await this.runPiperTTS(cleanText, modelPath, outputPath);
-            if (success) {
-                console.log(`TTS conversion successful: ${outputPath}`);
-                return {
-                    success: true,
-                    audioPath: outputPath
-                };
-            }
-            else {
-                return {
-                    success: false,
-                    error: 'TTS conversion failed'
-                };
-            }
+            return await this.createFallbackAudio(text, outputPath);
         }
         catch (error) {
             console.error('TTS error:', error);
@@ -158,20 +130,22 @@ export class TTSService {
             .replace(/([^.!?])$/, '$1.');
     }
     /**
-     * Get available voices
+     * Get available voices (Edge TTS voices)
      */
     static async getAvailableVoices() {
         try {
-            const files = await fs.readdir(this.MODELS_DIR);
-            const voices = files
-                .filter(file => file.endsWith('.onnx'))
-                .map(file => file.replace('.onnx', ''));
-            return voices;
+            return await EdgeTTSService.getAvailableVoices();
         }
         catch (error) {
             console.error('Error getting available voices:', error);
-            return [this.DEFAULT_VOICE];
+            return EdgeTTSService.getPopularVoices();
         }
+    }
+    /**
+     * Get popular voices for dropdown
+     */
+    static getPopularVoices() {
+        return EdgeTTSService.getPopularVoices();
     }
     /**
      * Clean up old audio files

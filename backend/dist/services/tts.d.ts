@@ -12,7 +12,7 @@ export declare class TTSService {
      */
     static initialize(): Promise<void>;
     /**
-     * Convert text to speech using Piper TTS
+     * Convert text to speech using Edge TTS (primary) with fallbacks
      */
     static textToSpeech(text: string, options?: TTSOptions): Promise<{
         success: boolean;
@@ -28,9 +28,13 @@ export declare class TTSService {
      */
     private static cleanTextForTTS;
     /**
-     * Get available voices
+     * Get available voices (Edge TTS voices)
      */
-    static getAvailableVoices(): Promise<string[]>;
+    static getAvailableVoices(): Promise<any[]>;
+    /**
+     * Get popular voices for dropdown
+     */
+    static getPopularVoices(): any[];
     /**
      * Clean up old audio files
      */
