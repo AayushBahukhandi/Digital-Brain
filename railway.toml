@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile.production"
+dockerfilePath = "Dockerfile.railway"
 
 [deploy]
-startCommand = "/start.sh"
+startCommand = "node dist/index.js"

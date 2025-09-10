@@ -1,0 +1,34 @@
+# Simplified Railway deployment - backend serves frontend
+FROM node:20-alpine
+
+# Install dependencies for backend
+WORKDIR /app/backend
+COPY backend/package*.json ./
+RUN npm ci
+
+# Copy and build backend
+COPY backend/ ./
+RUN npm run build
+
+# Build frontend
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Move built frontend to backend public directory
+RUN mkdir -p /app/backend/public
+RUN cp -r dist/* /app/backend/public/
+
+# Set working directory back to backend
+WORKDIR /app/backend
+
+# Copy environment file
+COPY backend/.env ./
+
+# Expose port (Railway will set PORT env var)
+EXPOSE $PORT
+
+# Start the backend server
+CMD ["node", "dist/index.js"]
