@@ -131,20 +131,26 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       // Update existing video
       console.log(`🔄 Updating existing video ID: ${existingVideo.id}`);
       console.log(`🔄 Existing video user_id: ${existingVideo.user_id}, Current user_id: ${userId}`);
+      if (existingVideo.user_id !== userId) {
+        console.log(`🔄 Transferring video ownership from user ${existingVideo.user_id} to user ${userId}`);
+      }
       
       const updateStmt = db.prepare(`
         UPDATE videos 
-        SET youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?
+        SET user_id = ?, youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?
         WHERE id = ?
       `);
       
-      updateStmt.run([url, contentTitle, fullTranscript, summary, tagsString, platform, existingVideo.id], function(err) {
+      updateStmt.run([userId, url, contentTitle, fullTranscript, summary, tagsString, platform, existingVideo.id], function(err) {
         if (err) {
           console.error('Database update error:', err);
           return res.status(500).json({ error: 'Failed to update content' });
         }
         
         console.log(`✅ ${platform} content updated with ID: ${existingVideo.id}`);
+        
+        const ownershipMessage = existingVideo.user_id !== userId ? 
+          ` (ownership transferred to you)` : '';
         
         res.json({
           id: existingVideo.id,
@@ -155,7 +161,7 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
           tags: autoTags,
           platform,
           contentId,
-          message: `${platform} content updated successfully`,
+          message: `${platform} content updated successfully${ownershipMessage}`,
           note: platform === 'instagram' ? 'Instagram content updated successfully' : 
                 platform === 'x' || platform === 'twitter' ? 'X/Twitter content updated successfully' :
                 platform === 'facebook' ? 'Facebook content updated successfully' : undefined
@@ -301,20 +307,21 @@ videoRoutes.delete('/:id', (req, res) => {
 });
 
 // Update video tags
-videoRoutes.put('/:id/tags', (req, res) => {
+videoRoutes.put('/:id/tags', authenticateToken, (req: AuthRequest, res) => {
   const { id } = req.params;
   const { tags } = req.body;
+  const userId = req.user?.userId;
   
   // Convert tags array to comma-separated string
   const tagsString = Array.isArray(tags) ? tags.join(',') : tags || '';
   
-  db.run('UPDATE videos SET tags = ? WHERE id = ?', [tagsString, id], function(err) {
+  db.run('UPDATE videos SET tags = ? WHERE id = ? AND user_id = ?', [tagsString, id, userId], function(err) {
     if (err) {
       return res.status(500).json({ error: 'Failed to update video tags' });
     }
     
     if (this.changes === 0) {
-      return res.status(404).json({ error: 'Video not found' });
+      return res.status(404).json({ error: 'Video not found or you do not have permission to update it' });
     }
     
     res.json({ message: 'Video tags updated successfully' });
@@ -322,9 +329,10 @@ videoRoutes.put('/:id/tags', (req, res) => {
 });
 
 // Update video title
-videoRoutes.put('/:id/title', async (req, res) => {
+videoRoutes.put('/:id/title', authenticateToken, async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { title } = req.body;
+  const userId = req.user?.userId;
   
   try {
     // If no title provided, try to fetch from YouTube
@@ -332,7 +340,7 @@ videoRoutes.put('/:id/title', async (req, res) => {
     if (!videoTitle) {
       // Get the video first to extract video ID
       const video = await new Promise<any>((resolve, reject) => {
-        db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+        db.get('SELECT * FROM videos WHERE id = ? AND user_id = ?', [id, userId], (err, row) => {
           if (err) reject(err);
           else resolve(row);
         });
@@ -354,13 +362,13 @@ videoRoutes.put('/:id/title', async (req, res) => {
       return res.status(400).json({ error: 'No title provided and could not fetch from YouTube' });
     }
     
-    db.run('UPDATE videos SET title = ? WHERE id = ?', [videoTitle, id], function(err) {
+    db.run('UPDATE videos SET title = ? WHERE id = ? AND user_id = ?', [videoTitle, id, userId], function(err) {
       if (err) {
         return res.status(500).json({ error: 'Failed to update video title' });
       }
       
       if (this.changes === 0) {
-        return res.status(404).json({ error: 'Video not found' });
+        return res.status(404).json({ error: 'Video not found or you do not have permission to update it' });
       }
       
       res.json({ message: 'Video title updated successfully', title: videoTitle });
@@ -371,11 +379,13 @@ videoRoutes.put('/:id/title', async (req, res) => {
 });
 
 // Bulk fix titles for all videos with incorrect titles
-videoRoutes.post('/fix-titles', async (req, res) => {
+videoRoutes.post('/fix-titles', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    // Get all videos with titles that start with "Video "
+    const userId = req.user?.userId;
+    
+    // Get all videos with titles that start with "Video " for current user
     const videos = await new Promise<any[]>((resolve, reject) => {
-      db.all('SELECT * FROM videos WHERE title LIKE "Video %"', [], (err, rows) => {
+      db.all('SELECT * FROM videos WHERE title LIKE "Video %" AND user_id = ?', [userId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
@@ -390,7 +400,7 @@ videoRoutes.post('/fix-titles', async (req, res) => {
           const newTitle = await TranscriptService.getYouTubeTitle(videoId);
           if (newTitle && newTitle.trim().length > 0) {
             await new Promise<void>((resolve, reject) => {
-              db.run('UPDATE videos SET title = ? WHERE id = ?', [newTitle, video.id], (err) => {
+              db.run('UPDATE videos SET title = ? WHERE id = ? AND user_id = ?', [newTitle, video.id, userId], (err) => {
                 if (err) reject(err);
                 else resolve();
               });
@@ -554,20 +564,21 @@ videoRoutes.post('/extract-transcript', async (req, res) => {
 });
 
 // Regenerate tags for a specific video
-videoRoutes.post('/:id/regenerate-tags', async (req, res) => {
+videoRoutes.post('/:id/regenerate-tags', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.userId;
     
     // Get the video
     const video = await new Promise<any>((resolve, reject) => {
-      db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+      db.get('SELECT * FROM videos WHERE id = ? AND user_id = ?', [id, userId], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
     });
     
     if (!video) {
-      return res.status(404).json({ error: 'Video not found' });
+      return res.status(404).json({ error: 'Video not found or you do not have permission to access it' });
     }
     
     // Generate new tags
@@ -576,7 +587,7 @@ videoRoutes.post('/:id/regenerate-tags', async (req, res) => {
     
     // Update the video with new tags
     await new Promise<void>((resolve, reject) => {
-      db.run('UPDATE videos SET tags = ? WHERE id = ?', [tagsString, id], (err) => {
+      db.run('UPDATE videos SET tags = ? WHERE id = ? AND user_id = ?', [tagsString, id, userId], (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -594,11 +605,13 @@ videoRoutes.post('/:id/regenerate-tags', async (req, res) => {
 });
 
 // Bulk regenerate tags for all videos
-videoRoutes.post('/regenerate-all-tags', async (req, res) => {
+videoRoutes.post('/regenerate-all-tags', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    // Get all videos
+    const userId = req.user?.userId;
+    
+    // Get all videos for current user
     const videos = await new Promise<any[]>((resolve, reject) => {
-      db.all('SELECT * FROM videos', [], (err, rows) => {
+      db.all('SELECT * FROM videos WHERE user_id = ?', [userId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
@@ -612,7 +625,7 @@ videoRoutes.post('/regenerate-all-tags', async (req, res) => {
         const tagsString = autoTags.join(',');
         
         await new Promise<void>((resolve, reject) => {
-          db.run('UPDATE videos SET tags = ? WHERE id = ?', [tagsString, video.id], (err) => {
+          db.run('UPDATE videos SET tags = ? WHERE id = ? AND user_id = ?', [tagsString, video.id, userId], (err) => {
             if (err) reject(err);
             else resolve();
           });
