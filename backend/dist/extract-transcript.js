@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { TranscriptService } from './services/transcript';
+import { TranscriptService } from './services/transcript.js';
 async function main() {
     const args = process.argv.slice(2);
     if (args.length === 0) {

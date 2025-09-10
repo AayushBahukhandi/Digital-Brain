@@ -48,15 +48,15 @@ export class TTSService {
         console.log(`Model files not found for ${voice}, trying fallback...`);
       }
 
-      // If model doesn't exist, try to use a fallback or create a simple audio file
-      if (!modelExists) {
-        return await this.createFallbackAudio(text, outputPath);
-      }
-
       // Generate unique filename
       const timestamp = Date.now();
       const filename = `tts_${timestamp}.wav`;
       const outputPath = options.outputPath || path.join(this.OUTPUT_DIR, filename);
+
+      // If model doesn't exist, try to use a fallback or create a simple audio file
+      if (!modelExists) {
+        return await this.createFallbackAudio(text, outputPath);
+      }
 
       // Clean text for TTS
       const cleanText = this.cleanTextForTTS(text);

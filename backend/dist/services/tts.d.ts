@@ -43,5 +43,13 @@ export declare class TTSService {
         audioPath?: string;
         error?: string;
     }>;
+    /**
+     * Create fallback audio when TTS models are not available
+     */
+    private static createFallbackAudio;
+    /**
+     * Create a silent audio file as last resort
+     */
+    private static createSilentAudio;
 }
 //# sourceMappingURL=tts.d.ts.map

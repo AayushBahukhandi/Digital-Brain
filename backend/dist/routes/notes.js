@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../database/sqlite';
+import { db } from '../database/sqlite.js';
 export const notesRoutes = Router();
 // Get all notes across all videos
 notesRoutes.get('/', (req, res) => {

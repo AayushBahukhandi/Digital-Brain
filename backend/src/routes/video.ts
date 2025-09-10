@@ -89,7 +89,7 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
     
     if (transcriptResult.success) {
       fullTranscript = transcriptResult.transcript;
-      summary = TranscriptService.generateSummary(fullTranscript);
+      summary = await TranscriptService.generateSummary(fullTranscript);
       
       // Generate auto tags based on content
       autoTags = TranscriptService.generateTags(fullTranscript, summary);
@@ -339,7 +339,7 @@ videoRoutes.post('/debug-transcript', async (req, res) => {
     const result = await TranscriptService.extractTranscript(url);
     
     if (result.success) {
-      const summary = TranscriptService.generateSummary(result.transcript);
+      const summary = await TranscriptService.generateSummary(result.transcript);
       const autoTags = TranscriptService.generateTags(result.transcript, summary);
       
       res.json({
@@ -409,7 +409,7 @@ videoRoutes.post('/extract-transcript', async (req, res) => {
     const result = await TranscriptService.extractTranscript(url);
     
     if (result.success) {
-      const summary = TranscriptService.generateSummary(result.transcript);
+      const summary = await TranscriptService.generateSummary(result.transcript);
       const autoTags = TranscriptService.generateTags(result.transcript, summary);
       
       let contentId: string | null = null;

@@ -83,6 +83,14 @@ export declare class TranscriptService {
      */
     private static callInstagramAPI;
     /**
+     * Call Twitter/X transcript API using Dictationer (same as Instagram)
+     */
+    private static callTwitterAPI;
+    /**
+     * Call Facebook transcript API using Dictationer (same as Instagram)
+     */
+    private static callFacebookAPI;
+    /**
      * Convert captions array to plain text transcript
      */
     private static convertCaptionsToText;
@@ -103,9 +111,53 @@ export declare class TranscriptService {
      */
     static extractInstagramId(url: string): string | null;
     /**
+     * Extract Twitter/X post ID from URL
+     */
+    static extractTwitterId(url: string): string | null;
+    /**
+     * Extract Facebook video ID from URL
+     */
+    static extractFacebookId(url: string): string | null;
+    /**
      * Generate a summary from transcript text with improved intelligence
      */
-    static generateSummary(transcript: string): string;
+    static generateSummary(transcript: string): Promise<string>;
+    /**
+     * Generate a simple summary for short content
+     */
+    private static generateSimpleSummary;
+    /**
+     * Generate summary using local processing
+     */
+    private static generateLocalSummary;
+    /**
+     * Preprocess transcript for better analysis
+     */
+    private static preprocessTranscript;
+    /**
+     * Extract key information from transcript
+     */
+    private static extractKeyInformation;
+    /**
+     * Extract important sentences using advanced scoring
+     */
+    private static extractImportantSentences;
+    /**
+     * Extract main topics from transcript
+     */
+    private static extractTopics;
+    /**
+     * Generate contextual summary based on content analysis
+     */
+    private static generateContextualSummary;
+    /**
+     * Post-process and validate summary
+     */
+    private static postProcessSummary;
+    /**
+     * Calculate similarity between two texts (simple Jaccard similarity)
+     */
+    private static calculateSimilarity;
     /**
      * Generate intelligent tags based on transcript and summary content
      */

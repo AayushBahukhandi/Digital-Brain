@@ -73,8 +73,8 @@ export class OpenRouterService {
         }
       );
 
-      if (response.data && response.data.choices && response.data.choices.length > 0) {
-        const responseText = response.data.choices[0].message.content;
+      if (response.data && (response.data as OpenRouterResponse).choices && (response.data as OpenRouterResponse).choices.length > 0) {
+        const responseText = (response.data as OpenRouterResponse).choices[0].message.content;
         console.log(`✓ Generated response: ${responseText.length} chars`);
         return responseText.trim();
       } else {

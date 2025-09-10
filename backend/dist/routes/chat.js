@@ -1,10 +1,12 @@
 import { Router } from 'express';
-import { db } from '../database/sqlite';
-import { OllamaService } from '../services/ollama';
+import { db } from '../database/sqlite.js';
+import { OpenRouterService } from '../services/openrouter.js';
+import { authenticateToken } from '../middleware/auth.js';
 export const chatRoutes = Router();
 // Get global chat messages
-chatRoutes.get('/global', (req, res) => {
-    db.all('SELECT * FROM global_chat_messages ORDER BY created_at ASC', (err, rows) => {
+chatRoutes.get('/global', authenticateToken, (req, res) => {
+    const userId = req.user?.userId;
+    db.all('SELECT * FROM global_chat_messages WHERE user_id = ? ORDER BY created_at ASC', [userId], (err, rows) => {
         if (err) {
             console.error('Database error:', err);
             return res.status(500).json({ error: 'Failed to fetch chat messages' });
@@ -17,18 +19,31 @@ chatRoutes.get('/global', (req, res) => {
         res.json(messages);
     });
 });
+// Clear global chat messages
+chatRoutes.delete('/global', authenticateToken, (req, res) => {
+    const userId = req.user?.userId;
+    db.run('DELETE FROM global_chat_messages WHERE user_id = ?', [userId], (err) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to clear chat messages' });
+        }
+        res.json({ message: 'Chat history cleared successfully' });
+    });
+});
 // Send global chat message
-chatRoutes.post('/global', async (req, res) => {
+chatRoutes.post('/global', authenticateToken, async (req, res) => {
     const { message } = req.body;
+    const userId = req.user?.userId;
     if (!message || message.trim().length === 0) {
         return res.status(400).json({ error: 'Message is required' });
     }
     try {
-        // Search across all videos for relevant content
-        const searchResults = await searchAcrossAllVideos(message);
+        // Search across user's videos for relevant content
+        const searchResults = await searchAcrossUserVideos(message, userId);
         const response = await generateGlobalChatResponse(message, searchResults);
-        const stmt = db.prepare('INSERT INTO global_chat_messages (message, response, matched_videos) VALUES (?, ?, ?)');
+        const stmt = db.prepare('INSERT INTO global_chat_messages (user_id, message, response, matched_videos) VALUES (?, ?, ?, ?)');
         stmt.run([
+            userId,
             message.trim(),
             response,
             JSON.stringify(searchResults.map(r => ({ id: r.id, title: r.title, relevance_score: r.relevance_score })))
@@ -66,9 +81,9 @@ function extractSearchTerms(query) {
     }
     return terms;
 }
-async function searchAcrossAllVideos(query) {
+async function searchAcrossUserVideos(query, userId) {
     return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM videos', (err, videos) => {
+        db.all('SELECT * FROM videos WHERE user_id = ?', [userId], (err, videos) => {
             if (err) {
                 reject(err);
                 return;
@@ -132,21 +147,19 @@ async function generateGlobalChatResponse(message, searchResults) {
     if (searchResults.length === 0) {
         return "I couldn't find any relevant content in your videos for that query. Try asking about specific topics or using different keywords.";
     }
-    // Initialize Ollama service
-    const ollama = new OllamaService();
-    // Check if Ollama is available
-    const isOllamaAvailable = await ollama.isAvailable();
-    if (!isOllamaAvailable) {
-        console.warn('Ollama not available, falling back to simple response');
+    // Initialize OpenRouter service
+    const openRouter = new OpenRouterService();
+    // Check if OpenRouter is available
+    const isOpenRouterAvailable = await openRouter.isAvailable();
+    if (!isOpenRouterAvailable) {
+        console.warn('OpenRouter not available, falling back to simple response');
         return generateSimpleResponse(message, searchResults);
     }
     try {
         // Prepare context for the LLM
         const context = prepareContextForLLM(message, searchResults);
-        // Generate prompt for the LLM
-        const prompt = createLLMPrompt(message, context);
-        // Get response from Ollama
-        const llmResponse = await ollama.generateResponse(prompt);
+        // Get response from OpenRouter
+        const llmResponse = await openRouter.generateChatResponse(message, context);
         return llmResponse;
     }
     catch (error) {
@@ -194,30 +207,6 @@ function extractBetterContext(transcript, query) {
     }
     // Fallback: return first few sentences if no matches
     return sentences.slice(0, 2).join('. ').trim() + '.';
-}
-function createLLMPrompt(userMessage, context) {
-    return `You are an expert video content assistant. Analyze the provided video information and give a comprehensive, detailed answer to the user's question.
-
-CONTEXT:
-${context}
-
-USER QUESTION: "${userMessage}"
-
-INSTRUCTIONS:
-1. **Be Comprehensive**: Provide a detailed explanation based on the video content
-2. **Be Specific**: Reference actual content, concepts, and details from the videos
-3. **Be Structured**: Organize your response logically with clear sections if needed
-4. **Be Conversational**: Write in a helpful, engaging tone
-5. **Be Complete**: Don't leave the user hanging - provide full explanations
-
-SPECIAL GUIDELINES:
-- If asked "what I actually did" or "what did I cover", explain the specific content, concepts, and topics covered in the video(s)
-- If multiple videos are relevant, explain how they relate and what each covers
-- Use the relevance scores to prioritize information from the most relevant videos
-- Quote or paraphrase specific content from the videos to support your explanations
-- If the user asks for details, provide thorough explanations with examples from the content
-
-RESPONSE:`;
 }
 function generateSimpleResponse(message, searchResults) {
     const lowerMessage = message.toLowerCase();

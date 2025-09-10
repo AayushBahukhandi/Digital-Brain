@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { TTSService } from '../services/tts';
-import { db } from '../database/sqlite';
+import { TTSService } from '../services/tts.js';
+import { db } from '../database/sqlite.js';
 import path from 'path';
 export const ttsRoutes = Router();
 // Initialize TTS service

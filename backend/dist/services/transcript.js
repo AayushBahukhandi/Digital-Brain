@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { OpenRouterService } from './openrouter.js';
 export class TranscriptService {
     /**
      * Extract transcript from a video URL using external API
@@ -21,12 +22,18 @@ export class TranscriptService {
         else if (platform === 'instagram') {
             console.log(`Extracting transcript for Instagram URL: ${url}`);
         }
+        else if (platform === 'x') {
+            console.log(`Extracting transcript for X/Twitter URL: ${url}`);
+        }
+        else if (platform === 'facebook') {
+            console.log(`Extracting transcript for Facebook URL: ${url}`);
+        }
         else {
             return {
                 success: false,
                 transcript: '',
                 method: 'none',
-                error: 'Unsupported platform - only YouTube and Instagram are supported',
+                error: 'Unsupported platform - only YouTube, Instagram, X (Twitter), and Facebook are supported',
                 platform: 'unknown'
             };
         }
@@ -59,6 +66,12 @@ export class TranscriptService {
             }
             else if (platform === 'instagram') {
                 return await this.callInstagramAPI(url);
+            }
+            else if (platform === 'x') {
+                return await this.callTwitterAPI(url);
+            }
+            else if (platform === 'facebook') {
+                return await this.callFacebookAPI(url);
             }
             else {
                 throw new Error(`Unsupported platform: ${platform}`);
@@ -201,6 +214,190 @@ export class TranscriptService {
         throw new Error('Transcription job timed out - took longer than expected to complete');
     }
     /**
+     * Call Twitter/X transcript API using Dictationer (same as Instagram)
+     */
+    static async callTwitterAPI(url) {
+        const headers = {
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGJlZjQ4ZGJmYjc4MDlhNTgzZjFjNTEiLCJ1c2VyQ29kZSI6ImVjYmE3NzNjLWJiMzctNGM0ZS1iZWRkLTE0MGRmOTY0ZTE1NiIsImVtYWlsIjoiaGFkb2JpODQzNkBuY2llbi5jb20iLCJpYXQiOjE3NTczNDUwNjYsImV4cCI6MTc1OTkzNzA2Nn0.wHVuiVVANligb9wofxmZNqT5dqU-avYtci-FBOaKvtk',
+            'Content-Type': 'application/json',
+            'x-api-key': '!apisuperSecreatApI13@'
+        };
+        // Step 1: Add transcription job
+        console.log('Adding X/Twitter transcription job...');
+        const addJobResponse = await axios.post('https://api.dictationer.com/queue/addTranscriptionJob', {
+            userId: "68bef48dbfb7809a583f1c51",
+            fileType: "youtubeLink",
+            youtubeLink: url,
+            duration: 60,
+            cost: 1,
+            targetLanguage: "en",
+            originalLanguage: "en",
+            countryCode: "IN",
+            processingOptions: {
+                includeVideoEditing: false,
+                includeTranslation: false,
+                includeSummary: false,
+                includeDiagram: false,
+                includeOriginalLanguage: false
+            },
+            isPremiumUser: true
+        }, {
+            headers,
+            timeout: 30000
+        });
+        const addJobData = addJobResponse.data;
+        if (!addJobData || !addJobData._id) {
+            throw new Error('Failed to create X/Twitter transcription job');
+        }
+        const jobId = addJobData._id;
+        console.log(`X/Twitter transcription job created with ID: ${jobId}`);
+        // Step 2: Poll for completion
+        let attempts = 0;
+        const maxAttempts = 60; // 3 minutes max (60 * 3 seconds)
+        while (attempts < maxAttempts) {
+            console.log(`Polling X/Twitter job status (attempt ${attempts + 1}/${maxAttempts})...`);
+            try {
+                const statusResponse = await axios.post('https://api.dictationer.com/job/getJobDataById', {
+                    jobId: jobId
+                }, {
+                    headers,
+                    timeout: 10000
+                });
+                const jobData = statusResponse.data;
+                if (jobData && jobData.progress) {
+                    console.log(`X/Twitter job progress: ${jobData.progress.percentage}% - ${jobData.progress.message}`);
+                    if (jobData.progress.percentage === 100) {
+                        // Job completed, extract transcript
+                        if (jobData.tracks && jobData.tracks.length > 0) {
+                            const transcript = jobData.tracks[0].text || '';
+                            const title = jobData.fileName || 'X/Twitter Post';
+                            if (transcript.length < 10) {
+                                throw new Error('Transcript too short - may be invalid');
+                            }
+                            console.log(`✓ X/Twitter transcription completed: ${transcript.length} chars`);
+                            return {
+                                success: true,
+                                transcript,
+                                method: 'dictationer-api',
+                                title,
+                                captions: undefined,
+                                platform: 'x'
+                            };
+                        }
+                        else {
+                            throw new Error('No transcript tracks found in completed X/Twitter job');
+                        }
+                    }
+                }
+                // Wait 3 seconds before next poll
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                attempts++;
+            }
+            catch (pollError) {
+                console.log(`X/Twitter polling error (attempt ${attempts + 1}): ${pollError instanceof Error ? pollError.message : 'Unknown error'}`);
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    throw new Error('X/Twitter transcription job polling failed after maximum attempts');
+                }
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+        throw new Error('X/Twitter transcription job timed out - took longer than expected to complete');
+    }
+    /**
+     * Call Facebook transcript API using Dictationer (same as Instagram)
+     */
+    static async callFacebookAPI(url) {
+        const headers = {
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGJlZjQ4ZGJmYjc4MDlhNTgzZjFjNTEiLCJ1c2VyQ29kZSI6ImVjYmE3NzNjLWJiMzctNGM0ZS1iZWRkLTE0MGRmOTY0ZTE1NiIsImVtYWlsIjoiaGFkb2JpODQzNkBuY2llbi5jb20iLCJpYXQiOjE3NTczNDUwNjYsImV4cCI6MTc1OTkzNzA2Nn0.wHVuiVVANligb9wofxmZNqT5dqU-avYtci-FBOaKvtk',
+            'Content-Type': 'application/json',
+            'x-api-key': '!apisuperSecreatApI13@'
+        };
+        // Step 1: Add transcription job
+        console.log('Adding Facebook transcription job...');
+        const addJobResponse = await axios.post('https://api.dictationer.com/queue/addTranscriptionJob', {
+            userId: "68bef48dbfb7809a583f1c51",
+            fileType: "youtubeLink",
+            youtubeLink: url,
+            duration: 60,
+            cost: 1,
+            targetLanguage: "en",
+            originalLanguage: "en",
+            countryCode: "IN",
+            processingOptions: {
+                includeVideoEditing: false,
+                includeTranslation: false,
+                includeSummary: false,
+                includeDiagram: false,
+                includeOriginalLanguage: false
+            },
+            isPremiumUser: true
+        }, {
+            headers,
+            timeout: 30000
+        });
+        const addJobData = addJobResponse.data;
+        if (!addJobData || !addJobData._id) {
+            throw new Error('Failed to create Facebook transcription job');
+        }
+        const jobId = addJobData._id;
+        console.log(`Facebook transcription job created with ID: ${jobId}`);
+        // Step 2: Poll for completion
+        let attempts = 0;
+        const maxAttempts = 60; // 3 minutes max (60 * 3 seconds)
+        while (attempts < maxAttempts) {
+            console.log(`Polling Facebook job status (attempt ${attempts + 1}/${maxAttempts})...`);
+            try {
+                const statusResponse = await axios.post('https://api.dictationer.com/job/getJobDataById', {
+                    jobId: jobId
+                }, {
+                    headers,
+                    timeout: 10000
+                });
+                const jobData = statusResponse.data;
+                if (jobData && jobData.progress) {
+                    console.log(`Facebook job progress: ${jobData.progress.percentage}% - ${jobData.progress.message}`);
+                    if (jobData.progress.percentage === 100) {
+                        // Job completed, extract transcript
+                        if (jobData.tracks && jobData.tracks.length > 0) {
+                            const transcript = jobData.tracks[0].text || '';
+                            const title = jobData.fileName || 'Facebook Video';
+                            if (transcript.length < 10) {
+                                throw new Error('Transcript too short - may be invalid');
+                            }
+                            console.log(`✓ Facebook transcription completed: ${transcript.length} chars`);
+                            return {
+                                success: true,
+                                transcript,
+                                method: 'dictationer-api',
+                                title,
+                                captions: undefined,
+                                platform: 'facebook'
+                            };
+                        }
+                        else {
+                            throw new Error('No transcript tracks found in completed Facebook job');
+                        }
+                    }
+                }
+                // Wait 3 seconds before next poll
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                attempts++;
+            }
+            catch (pollError) {
+                console.log(`Facebook polling error (attempt ${attempts + 1}): ${pollError instanceof Error ? pollError.message : 'Unknown error'}`);
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    throw new Error('Facebook transcription job polling failed after maximum attempts');
+                }
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+        throw new Error('Facebook transcription job timed out - took longer than expected to complete');
+    }
+    /**
      * Convert captions array to plain text transcript
      */
     static convertCaptionsToText(captions) {
@@ -267,6 +464,12 @@ export class TranscriptService {
         else if (url.includes('instagram.com')) {
             return 'instagram';
         }
+        else if (url.includes('x.com') || url.includes('twitter.com')) {
+            return 'x';
+        }
+        else if (url.includes('facebook.com')) {
+            return 'facebook';
+        }
         return 'unknown';
     }
     /**
@@ -306,14 +509,107 @@ export class TranscriptService {
         return null;
     }
     /**
+     * Extract Twitter/X post ID from URL
+     */
+    static extractTwitterId(url) {
+        const patterns = [
+            /(?:x\.com\/\w+\/status\/)(\d+)/,
+            /(?:twitter\.com\/\w+\/status\/)(\d+)/,
+            /(?:x\.com\/i\/status\/)(\d+)/,
+            /(?:twitter\.com\/i\/status\/)(\d+)/
+        ];
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                return match[1];
+            }
+        }
+        return null;
+    }
+    /**
+     * Extract Facebook video ID from URL
+     */
+    static extractFacebookId(url) {
+        const patterns = [
+            /(?:facebook\.com\/watch\/?\?v=)(\d+)/,
+            /(?:facebook\.com\/.*\/videos\/)(\d+)/,
+            /(?:facebook\.com\/video\.php\?v=)(\d+)/,
+            /(?:facebook\.com\/share\/v\/)([^/?#]+)/,
+            /(?:facebook\.com\/reel\/)(\d+)/
+        ];
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                return match[1];
+            }
+        }
+        return null;
+    }
+    /**
      * Generate a summary from transcript text with improved intelligence
      */
-    static generateSummary(transcript) {
+    static async generateSummary(transcript) {
         if (!transcript || transcript.trim().length === 0) {
             return 'No content available for summary.';
         }
-        // Advanced text cleaning
-        let cleanText = transcript
+        // For short transcripts, use simple processing
+        if (transcript.length <= 500) {
+            return this.generateSimpleSummary(transcript);
+        }
+        // Try OpenRouter for better summarization
+        try {
+            const openRouter = new OpenRouterService();
+            const isAvailable = await openRouter.isAvailable();
+            if (isAvailable) {
+                console.log('Using OpenRouter for advanced summarization');
+                return await openRouter.generateSummary(transcript, 'This is a transcript from a video or audio recording');
+            }
+        }
+        catch (error) {
+            console.warn('OpenRouter summarization failed, falling back to local processing:', error);
+        }
+        // Fallback to local processing
+        return this.generateLocalSummary(transcript);
+    }
+    /**
+     * Generate a simple summary for short content
+     */
+    static generateSimpleSummary(transcript) {
+        const cleanText = this.preprocessTranscript(transcript);
+        if (cleanText.length <= 150) {
+            return cleanText;
+        }
+        // Extract first few meaningful sentences
+        const sentences = cleanText.split(/[.!?]+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 20)
+            .slice(0, 3);
+        return sentences.join('. ') + '.';
+    }
+    /**
+     * Generate summary using local processing
+     */
+    static generateLocalSummary(transcript) {
+        // Advanced text cleaning and preprocessing
+        let cleanText = this.preprocessTranscript(transcript);
+        if (cleanText.length <= 150) {
+            return cleanText;
+        }
+        // Extract key information using multiple strategies
+        const keyInfo = this.extractKeyInformation(cleanText);
+        const importantSentences = this.extractImportantSentences(cleanText);
+        const topics = this.extractTopics(cleanText);
+        // Generate summary based on content type and length
+        let summary = this.generateContextualSummary(cleanText, keyInfo, importantSentences, topics);
+        // Post-process and validate summary
+        summary = this.postProcessSummary(summary, cleanText);
+        return summary || 'Unable to generate meaningful summary from the available content.';
+    }
+    /**
+     * Preprocess transcript for better analysis
+     */
+    static preprocessTranscript(transcript) {
+        return transcript
             .replace(/\s+/g, ' ')
             .replace(/\[.*?\]/g, '') // Remove [Music], [Applause], etc.
             .replace(/\(.*?\)/g, '') // Remove (inaudible), etc.
@@ -321,70 +617,166 @@ export class TranscriptService {
             .replace(/\b(and|but|or|so|then|now|well|okay|alright)\s+/gi, '') // Remove weak connectors
             .replace(/\s+/g, ' ')
             .trim();
-        if (cleanText.length <= 150) {
-            return cleanText;
-        }
-        // Split into sentences and analyze importance
-        const sentences = cleanText.split(/[.!?]+/)
+    }
+    /**
+     * Extract key information from transcript
+     */
+    static extractKeyInformation(text) {
+        const numbers = text.match(/\b\d+(?:\.\d+)?%?\b/g) || [];
+        const dates = text.match(/\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}|\b\d{1,2}\/\d{1,2}\/\d{2,4}|\b\d{4}-\d{2}-\d{2}\b/gi) || [];
+        const names = text.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g) || [];
+        const questions = text.match(/[^.!?]*\?[^.!?]*/g) || [];
+        const conclusions = text.match(/\b(?:in conclusion|to summarize|finally|overall|in summary|to wrap up|in the end)\b[^.!?]*[.!?]/gi) || [];
+        return { numbers, dates, names, questions, conclusions };
+    }
+    /**
+     * Extract important sentences using advanced scoring
+     */
+    static extractImportantSentences(text) {
+        const sentences = text.split(/[.!?]+/)
             .map(s => s.trim())
-            .filter(s => s.length > 20); // Only meaningful sentences
+            .filter(s => s.length > 20);
         if (sentences.length <= 2) {
-            return cleanText.substring(0, 300) + (cleanText.length > 300 ? '...' : '');
+            return sentences.map((s, i) => ({ sentence: s, score: 1, index: i }));
         }
-        // Score sentences based on importance indicators
-        const scoredSentences = sentences.map((sentence, index) => {
+        return sentences.map((sentence, index) => {
             let score = 0;
             const lowerSentence = sentence.toLowerCase();
-            // Higher score for sentences with important keywords
-            const importantWords = [
-                'main', 'key', 'important', 'crucial', 'essential', 'primary', 'major',
-                'first', 'second', 'third', 'finally', 'conclusion', 'summary',
-                'problem', 'solution', 'result', 'outcome', 'benefit', 'advantage',
-                'tip', 'trick', 'method', 'technique', 'strategy', 'approach',
-                'because', 'therefore', 'however', 'although', 'despite'
-            ];
-            importantWords.forEach(word => {
-                if (lowerSentence.includes(word))
-                    score += 2;
+            // Content importance indicators
+            const importanceIndicators = {
+                high: ['main', 'key', 'important', 'crucial', 'essential', 'primary', 'major', 'critical', 'vital'],
+                medium: ['first', 'second', 'third', 'finally', 'conclusion', 'summary', 'problem', 'solution', 'result', 'outcome'],
+                low: ['tip', 'trick', 'method', 'technique', 'strategy', 'approach', 'because', 'therefore', 'however']
+            };
+            // Score based on importance indicators
+            Object.entries(importanceIndicators).forEach(([level, words]) => {
+                const multiplier = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+                words.forEach(word => {
+                    if (lowerSentence.includes(word))
+                        score += multiplier;
+                });
             });
-            // Boost first and last sentences
+            // Position-based scoring
             if (index === 0)
-                score += 3;
+                score += 3; // First sentence
             if (index === sentences.length - 1)
-                score += 2;
-            // Boost sentences with numbers or specific data
+                score += 2; // Last sentence
+            if (index < sentences.length * 0.1)
+                score += 1; // Early sentences
+            // Content-based scoring
             if (/\d+/.test(sentence))
-                score += 1;
-            // Boost questions (often important)
+                score += 1; // Contains numbers
             if (sentence.includes('?'))
+                score += 1; // Questions
+            if (sentence.includes(':'))
+                score += 1; // Lists or explanations
+            if (sentence.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/))
+                score += 1; // Contains names
+            // Length-based scoring (optimal length 30-150 chars)
+            if (sentence.length >= 30 && sentence.length <= 150)
                 score += 1;
-            // Penalize very short or very long sentences
-            if (sentence.length < 30)
-                score -= 1;
+            if (sentence.length < 20)
+                score -= 2;
             if (sentence.length > 200)
                 score -= 1;
-            return { sentence, score, index };
+            // Repetition penalty
+            const words = sentence.toLowerCase().split(/\s+/);
+            const uniqueWords = new Set(words);
+            if (words.length > uniqueWords.size * 1.5)
+                score -= 1;
+            return { sentence, score: Math.max(0, score), index };
         });
-        // Sort by score and select top sentences
-        const topSentences = scoredSentences
+    }
+    /**
+     * Extract main topics from transcript
+     */
+    static extractTopics(text) {
+        const topicKeywords = {
+            'technology': ['tech', 'software', 'app', 'digital', 'computer', 'internet', 'ai', 'machine learning'],
+            'business': ['business', 'company', 'startup', 'market', 'revenue', 'profit', 'customer', 'product'],
+            'education': ['learn', 'study', 'course', 'education', 'school', 'university', 'student', 'teacher'],
+            'health': ['health', 'medical', 'fitness', 'wellness', 'doctor', 'treatment', 'medicine', 'exercise'],
+            'science': ['science', 'research', 'study', 'experiment', 'data', 'analysis', 'theory', 'hypothesis'],
+            'entertainment': ['movie', 'music', 'game', 'fun', 'entertainment', 'show', 'series', 'book']
+        };
+        const topics = [];
+        const lowerText = text.toLowerCase();
+        Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+            const matches = keywords.filter(keyword => lowerText.includes(keyword)).length;
+            if (matches >= 2) {
+                topics.push(topic);
+            }
+        });
+        return topics;
+    }
+    /**
+     * Generate contextual summary based on content analysis
+     */
+    static generateContextualSummary(text, keyInfo, importantSentences, topics) {
+        // Select top sentences based on score
+        const topSentences = importantSentences
             .sort((a, b) => b.score - a.score)
-            .slice(0, 3)
-            .sort((a, b) => a.index - b.index); // Restore original order
+            .slice(0, Math.min(4, Math.max(2, Math.ceil(importantSentences.length * 0.3))))
+            .sort((a, b) => a.index - b.index);
         let summary = topSentences.map(s => s.sentence).join('. ');
+        // Add contextual information if relevant
+        if (keyInfo.numbers.length > 0 && !summary.match(/\d+/)) {
+            const importantNumber = keyInfo.numbers[0];
+            summary = `The discussion mentions ${importantNumber}. ${summary}`;
+        }
+        if (topics.length > 0) {
+            const topicContext = `This ${topics[0]}-focused discussion covers: ${summary}`;
+            if (topicContext.length < 500) {
+                summary = topicContext;
+            }
+        }
         // Ensure proper ending
         if (!summary.match(/[.!?]$/)) {
             summary += '.';
         }
-        // Clean up and limit length
+        return summary;
+    }
+    /**
+     * Post-process and validate summary
+     */
+    static postProcessSummary(summary, originalText) {
+        // Clean up formatting
         summary = summary
             .replace(/\.\s*\./g, '.')
             .replace(/\s+/g, ' ')
             .trim();
-        if (summary.length > 400) {
-            const cutoff = summary.lastIndexOf('.', 400);
-            summary = cutoff > 200 ? summary.substring(0, cutoff + 1) : summary.substring(0, 400) + '...';
+        // Ensure summary is not too similar to original (avoid copying)
+        const similarity = this.calculateSimilarity(summary, originalText);
+        if (similarity > 0.8) {
+            // If too similar, try to make it more concise
+            const sentences = summary.split(/[.!?]+/).filter(s => s.trim());
+            if (sentences.length > 2) {
+                summary = sentences.slice(0, Math.ceil(sentences.length * 0.7)).join('. ') + '.';
+            }
         }
-        return summary || 'Unable to generate meaningful summary from the available content.';
+        // Length validation and adjustment
+        if (summary.length > 500) {
+            const cutoff = summary.lastIndexOf('.', 500);
+            summary = cutoff > 200 ? summary.substring(0, cutoff + 1) : summary.substring(0, 500) + '...';
+        }
+        // Ensure minimum meaningful content
+        if (summary.length < 50) {
+            const firstSentence = originalText.split(/[.!?]+/)[0];
+            if (firstSentence && firstSentence.length > 20) {
+                summary = firstSentence.substring(0, 200) + (firstSentence.length > 200 ? '...' : '');
+            }
+        }
+        return summary;
+    }
+    /**
+     * Calculate similarity between two texts (simple Jaccard similarity)
+     */
+    static calculateSimilarity(text1, text2) {
+        const words1 = new Set(text1.toLowerCase().split(/\s+/));
+        const words2 = new Set(text2.toLowerCase().split(/\s+/));
+        const intersection = new Set([...words1].filter(x => words2.has(x)));
+        const union = new Set([...words1, ...words2]);
+        return intersection.size / union.size;
     }
     /**
      * Generate intelligent tags based on transcript and summary content

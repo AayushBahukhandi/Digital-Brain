@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { TranscriptService } from './transcript';
+import { TranscriptService } from './transcript.js';
 export class VoiceNotesService {
     /**
      * Initialize voice notes service
@@ -70,7 +70,7 @@ export class VoiceNotesService {
                 };
             }
             // Generate summary and tags
-            const summary = TranscriptService.generateSummary(transcript);
+            const summary = await TranscriptService.generateSummary(transcript);
             const tags = TranscriptService.generateTags(transcript, summary);
             const voiceNote = {
                 id: recordingId,
@@ -173,6 +173,132 @@ export class VoiceNotesService {
         }
         catch (error) {
             console.error('Error cleaning up old recordings:', error);
+        }
+    }
+    /**
+     * Add a followup recording to an existing voice note
+     */
+    static async addFollowupRecording(parentNoteId, audioBuffer, originalFilename) {
+        try {
+            const followupId = `followup_${Date.now()}`;
+            const filename = `${followupId}.wav`;
+            const filePath = path.join(this.RECORDINGS_DIR, filename);
+            // Save the audio file
+            await fs.writeFile(filePath, audioBuffer);
+            console.log(`Followup audio file saved: ${filename}`);
+            // Convert to text
+            const transcript = await this.convertAudioToText(filePath);
+            if (!transcript || transcript.length < 10) {
+                return {
+                    success: false,
+                    error: 'Could not extract meaningful text from followup audio. Please ensure clear speech and good audio quality.'
+                };
+            }
+            // Generate summary and tags for the followup
+            const summary = await TranscriptService.generateSummary(transcript);
+            const followupRecording = {
+                id: followupId,
+                filename,
+                transcript,
+                summary,
+                createdAt: new Date(),
+                parentNoteId
+            };
+            console.log(`Followup recording processed: ${transcript.length} chars`);
+            return {
+                success: true,
+                followupRecording
+            };
+        }
+        catch (error) {
+            console.error('Followup recording processing error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown followup processing error'
+            };
+        }
+    }
+    /**
+     * Get all followup recordings for a voice note
+     */
+    static async getFollowupRecordings(parentNoteId) {
+        // This would typically query a database
+        // For now, return empty array as we don't have persistent storage for followups yet
+        return [];
+    }
+    /**
+     * Create a meeting session with multiple recordings
+     */
+    static async createMeetingSession(meetingId) {
+        try {
+            const sessionId = meetingId || `meeting_${Date.now()}`;
+            console.log(`Created meeting session: ${sessionId}`);
+            return {
+                success: true,
+                meetingId: sessionId
+            };
+        }
+        catch (error) {
+            console.error('Error creating meeting session:', error);
+            return {
+                success: false,
+                meetingId: '',
+                error: error instanceof Error ? error.message : 'Unknown error creating meeting session'
+            };
+        }
+    }
+    /**
+     * Add recording to a meeting session
+     */
+    static async addToMeeting(meetingId, audioBuffer, originalFilename, isFollowup = false) {
+        try {
+            if (isFollowup) {
+                // Add as followup to the most recent note in the meeting
+                const followupResult = await this.addFollowupRecording(meetingId, audioBuffer, originalFilename);
+                return {
+                    success: followupResult.success,
+                    followupRecording: followupResult.followupRecording,
+                    error: followupResult.error
+                };
+            }
+            else {
+                // Add as new voice note in the meeting
+                const result = await this.processAudioFile(audioBuffer, originalFilename);
+                if (result.success && result.voiceNote) {
+                    result.voiceNote.meetingId = meetingId;
+                }
+                return result;
+            }
+        }
+        catch (error) {
+            console.error('Error adding to meeting:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error adding to meeting'
+            };
+        }
+    }
+    /**
+     * Generate comprehensive meeting summary
+     */
+    static async generateMeetingSummary(meetingId, allRecordings) {
+        try {
+            if (allRecordings.length === 0) {
+                return 'No recordings found for this meeting.';
+            }
+            // Combine all transcripts
+            const allTranscripts = allRecordings
+                .map(recording => recording.transcript)
+                .join(' ');
+            // Generate a comprehensive summary
+            const meetingSummary = await TranscriptService.generateSummary(allTranscripts);
+            // Add meeting context
+            const context = `Meeting Summary (${allRecordings.length} recordings):\n\n${meetingSummary}`;
+            return context;
+        }
+        catch (error) {
+            console.error('Error generating meeting summary:', error);
+            return 'Error generating meeting summary.';
         }
     }
 }

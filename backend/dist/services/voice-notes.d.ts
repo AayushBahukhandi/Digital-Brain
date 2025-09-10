@@ -6,6 +6,16 @@ export interface VoiceNote {
     tags: string[];
     duration?: number;
     createdAt: Date;
+    followupRecordings?: FollowupRecording[];
+    meetingId?: string;
+}
+export interface FollowupRecording {
+    id: string;
+    filename: string;
+    transcript: string;
+    summary: string;
+    createdAt: Date;
+    parentNoteId: string;
 }
 export interface RecordingOptions {
     duration?: number;
@@ -56,5 +66,38 @@ export declare class VoiceNotesService {
      * Clean up old recordings
      */
     static cleanupOldRecordings(maxAgeHours?: number): Promise<void>;
+    /**
+     * Add a followup recording to an existing voice note
+     */
+    static addFollowupRecording(parentNoteId: string, audioBuffer: Buffer, originalFilename: string): Promise<{
+        success: boolean;
+        followupRecording?: FollowupRecording;
+        error?: string;
+    }>;
+    /**
+     * Get all followup recordings for a voice note
+     */
+    static getFollowupRecordings(parentNoteId: string): Promise<FollowupRecording[]>;
+    /**
+     * Create a meeting session with multiple recordings
+     */
+    static createMeetingSession(meetingId?: string): Promise<{
+        success: boolean;
+        meetingId: string;
+        error?: string;
+    }>;
+    /**
+     * Add recording to a meeting session
+     */
+    static addToMeeting(meetingId: string, audioBuffer: Buffer, originalFilename: string, isFollowup?: boolean): Promise<{
+        success: boolean;
+        voiceNote?: VoiceNote;
+        followupRecording?: FollowupRecording;
+        error?: string;
+    }>;
+    /**
+     * Generate comprehensive meeting summary
+     */
+    static generateMeetingSummary(meetingId: string, allRecordings: (VoiceNote | FollowupRecording)[]): Promise<string>;
 }
 //# sourceMappingURL=voice-notes.d.ts.map
