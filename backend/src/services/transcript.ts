@@ -705,7 +705,12 @@ export class TranscriptService {
             
             if (isAvailable) {
                 console.log('Using OpenRouter for advanced summarization');
-                return await openRouter.generateSummary(transcript, 'This is a transcript from a video or audio recording');
+                const summary = await openRouter.generateSummary(transcript, 'This is a transcript from a video or audio recording');
+                if (summary && summary.trim().length > 0) {
+                    return summary;
+                } else {
+                    console.warn('OpenRouter returned empty summary, falling back to local processing');
+                }
             }
         } catch (error) {
             console.warn('OpenRouter summarization failed, falling back to local processing:', error);

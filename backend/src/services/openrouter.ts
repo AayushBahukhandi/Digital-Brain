@@ -28,7 +28,7 @@ export interface OpenRouterResponse {
 export class OpenRouterService {
   private apiKey: string;
   private baseUrl: string = 'https://openrouter.ai/api/v1';
-  private defaultModel: string = 'microsoft/wizardlm-2-8x22b'; // Free model with good performance
+  private defaultModel: string = 'meta-llama/llama-3.1-8b-instruct'; // Free model with good performance
 
   constructor(apiKey?: string) {
     this.apiKey = apiKey || process.env.OPENROUTER_API_KEY || '';

@@ -3,6 +3,7 @@ import { db } from '../database/sqlite.js';
 import { z } from 'zod';
 import { TranscriptService } from '../services/transcript.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import { v4 as uuidv4 } from 'uuid';
 
 export const videoRoutes = Router();
 
@@ -49,20 +50,13 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       return res.status(400).json({ error: 'Unsupported platform - only YouTube, Instagram, X (Twitter), and Facebook are supported' });
     }
 
-    // Check if video already exists (check by exact URL first, then content ID)
+    // Check if video already exists for this user (check by exact URL and user_id)
     const existingVideo = await new Promise<any>((resolve, reject) => {
-      // First try exact URL match
-      db.get('SELECT * FROM videos WHERE youtube_url = ? AND platform = ?', [url, platform], (err, row) => {
+      db.get('SELECT * FROM videos WHERE youtube_url = ? AND platform = ? AND user_id = ?', [url, platform, userId], (err, row) => {
         if (err) {
           reject(err);
-        } else if (row) {
-          resolve(row);
         } else {
-          // If no exact URL match, try content ID match
-          db.get('SELECT * FROM videos WHERE youtube_url LIKE ? AND platform = ?', [`%${contentId}%`, platform], (err2, row2) => {
-            if (err2) reject(err2);
-            else resolve(row2);
-          });
+          resolve(row);
         }
       });
     });
@@ -71,10 +65,7 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       console.log(`🔄 Found existing ${platform} content with ID: ${existingVideo.id}`);
       console.log(`🔄 Existing title: ${existingVideo.title}`);
       console.log(`🔄 Existing URL: ${existingVideo.youtube_url}`);
-      console.log(`🔄 Processing new request to replace existing content...`);
-      
-      // Continue processing to replace the existing video with fresh data
-      // We'll update the existing record instead of creating a new one
+      console.log(`🔄 Updating existing content for user ${userId}...`);
     } else {
       console.log(`Processing new ${platform} content ID: ${contentId}`);
       console.log(`Content URL: ${url}`);
@@ -130,27 +121,20 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
     if (existingVideo) {
       // Update existing video
       console.log(`🔄 Updating existing video ID: ${existingVideo.id}`);
-      console.log(`🔄 Existing video user_id: ${existingVideo.user_id}, Current user_id: ${userId}`);
-      if (existingVideo.user_id !== userId) {
-        console.log(`🔄 Transferring video ownership from user ${existingVideo.user_id} to user ${userId}`);
-      }
       
       const updateStmt = db.prepare(`
         UPDATE videos 
-        SET user_id = ?, youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?
+        SET youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?
         WHERE id = ?
       `);
       
-      updateStmt.run([userId, url, contentTitle, fullTranscript, summary, tagsString, platform, existingVideo.id], function(err) {
+      updateStmt.run([url, contentTitle, fullTranscript, summary, tagsString, platform, existingVideo.id], function(err) {
         if (err) {
           console.error('Database update error:', err);
           return res.status(500).json({ error: 'Failed to update content' });
         }
         
         console.log(`✅ ${platform} content updated with ID: ${existingVideo.id}`);
-        
-        const ownershipMessage = existingVideo.user_id !== userId ? 
-          ` (ownership transferred to you)` : '';
         
         res.json({
           id: existingVideo.id,
@@ -161,7 +145,7 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
           tags: autoTags,
           platform,
           contentId,
-          message: `${platform} content updated successfully${ownershipMessage}`,
+          message: `${platform} content updated successfully`,
           note: platform === 'instagram' ? 'Instagram content updated successfully' : 
                 platform === 'x' || platform === 'twitter' ? 'X/Twitter content updated successfully' :
                 platform === 'facebook' ? 'Facebook content updated successfully' : undefined
@@ -170,12 +154,13 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
     } else {
       // Insert new video
       console.log(`➕ Creating new ${platform} content`);
+      const videoUuid = uuidv4();
       const insertStmt = db.prepare(`
-        INSERT INTO videos (user_id, youtube_url, title, transcript, summary, tags, platform)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO videos (uuid, user_id, youtube_url, title, transcript, summary, tags, platform)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
-      insertStmt.run([userId, url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
+      insertStmt.run([videoUuid, userId, url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
         if (err) {
           console.error('Database insert error:', err);
           return res.status(500).json({ error: 'Failed to save content' });

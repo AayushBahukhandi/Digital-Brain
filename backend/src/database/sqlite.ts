@@ -20,10 +20,11 @@ export const initializeDatabase = () => {
       )
     `);
 
-    // Videos table
+    // Videos table with UUID support
     db.run(`
       CREATE TABLE IF NOT EXISTS videos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uuid TEXT UNIQUE NOT NULL,
         user_id INTEGER,
         youtube_url TEXT NOT NULL,
         title TEXT,
@@ -33,36 +34,26 @@ export const initializeDatabase = () => {
         platform TEXT DEFAULT 'youtube',
         embedding BLOB,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);
 
-    // Add tags column if it doesn't exist (for existing databases)
-    db.run(`
-      ALTER TABLE videos ADD COLUMN tags TEXT
-    `, (err) => {
-      // Ignore error if column already exists
+    // Create indexes for better performance
+    db.run(`CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id)`, (err) => {
+      // Ignore error if index already exists
     });
-
-    // Add platform column if it doesn't exist (for existing databases)
-    db.run(`
-      ALTER TABLE videos ADD COLUMN platform TEXT DEFAULT 'youtube'
-    `, (err) => {
-      // Ignore error if column already exists
+    db.run(`CREATE INDEX IF NOT EXISTS idx_videos_uuid ON videos(uuid)`, (err) => {
+      // Ignore error if index already exists
     });
-
-    // Add user_id column if it doesn't exist (for existing databases)
-    db.run(`
-      ALTER TABLE videos ADD COLUMN user_id INTEGER
-    `, (err) => {
-      // Ignore error if column already exists
+    db.run(`CREATE INDEX IF NOT EXISTS idx_videos_platform ON videos(platform)`, (err) => {
+      // Ignore error if index already exists
     });
-
-    // Add updated_at column if it doesn't exist (for existing databases)
-    db.run(`
-      ALTER TABLE videos ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    `, (err) => {
-      // Ignore error if column already exists
+    db.run(`CREATE INDEX IF NOT EXISTS idx_voice_notes_user_id ON voice_notes(user_id)`, (err) => {
+      // Ignore error if index already exists
+    });
+    db.run(`CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON global_chat_messages(user_id)`, (err) => {
+      // Ignore error if index already exists
     });
 
 
