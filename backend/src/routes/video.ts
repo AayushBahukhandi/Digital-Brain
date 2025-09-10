@@ -130,6 +130,8 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
     if (existingVideo) {
       // Update existing video
       console.log(`🔄 Updating existing video ID: ${existingVideo.id}`);
+      console.log(`🔄 Existing video user_id: ${existingVideo.user_id}, Current user_id: ${userId}`);
+      
       const updateStmt = db.prepare(`
         UPDATE videos 
         SET youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?
@@ -212,16 +214,73 @@ videoRoutes.get('/:id', authenticateToken, (req: AuthRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   
+  console.log(`Fetching video ID: ${id} for user: ${userId}`);
+  
   db.get('SELECT * FROM videos WHERE id = ? AND user_id = ?', [id, userId], (err, row) => {
     if (err) {
+      console.log(`Database error for video ${id}:`, err);
       return res.status(500).json({ error: 'Failed to fetch video' });
     }
     
     if (!row) {
+      console.log(`Video ${id} not found for user ${userId}`);
       return res.status(404).json({ error: 'Video not found' });
     }
     
+    console.log(`Video ${id} found:`, { id: (row as any).id, title: (row as any).title, user_id: (row as any).user_id });
     res.json(row);
+  });
+});
+
+// Public endpoint for testing (no authentication required)
+videoRoutes.get('/public/:id', (req, res) => {
+  const { id } = req.params;
+  
+  console.log(`Public fetch for video ID: ${id}`);
+  
+  db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      console.log(`Database error for video ${id}:`, err);
+      return res.status(500).json({ error: 'Failed to fetch video' });
+    }
+    
+    if (!row) {
+      console.log(`Video ${id} not found in database`);
+      return res.status(404).json({ error: 'Video not found' });
+    }
+    
+    console.log(`Video ${id} found:`, { id: (row as any).id, title: (row as any).title, user_id: (row as any).user_id });
+    res.json(row);
+  });
+});
+
+// Debug endpoint to list all videos (no authentication required)
+videoRoutes.get('/debug/all', (req, res) => {
+  console.log('Debug: Fetching all videos');
+  
+  db.all('SELECT id, title, user_id, platform, created_at FROM videos ORDER BY id DESC LIMIT 10', [], (err, rows) => {
+    if (err) {
+      console.log('Database error:', err);
+      return res.status(500).json({ error: 'Failed to fetch videos' });
+    }
+    
+    console.log(`Found ${rows.length} videos:`, rows);
+    res.json({ count: rows.length, videos: rows });
+  });
+});
+
+// Quick clear endpoint (no authentication required)
+videoRoutes.post('/debug/clear', (req, res) => {
+  console.log('🗑️ Quick clear - removing all videos...');
+  
+  db.run('DELETE FROM videos', (err) => {
+    if (err) {
+      console.error('Error clearing videos:', err);
+      return res.status(500).json({ error: 'Failed to clear videos' });
+    }
+    
+    console.log('✅ All videos cleared');
+    res.json({ message: 'All videos cleared successfully' });
   });
 });
 
@@ -702,11 +761,33 @@ videoRoutes.post('/test-facebook', async (req, res) => {
 
 // Clear all data endpoint for testing
 videoRoutes.post('/clear-all', (req, res) => {
+  console.log('🗑️ Clearing all database data...');
   db.serialize(() => {
-    db.run('DELETE FROM videos');
-    db.run('DELETE FROM global_chat_messages');
-    console.log('All data cleared');
-    res.json({ message: 'All data cleared successfully' });
+    db.run('DELETE FROM videos', (err) => {
+      if (err) console.error('Error clearing videos:', err);
+      else console.log('✅ Videos cleared');
+    });
+    
+    db.run('DELETE FROM global_chat_messages', (err) => {
+      if (err) console.error('Error clearing chat messages:', err);
+      else console.log('✅ Chat messages cleared');
+    });
+    
+    db.run('DELETE FROM voice_notes', (err) => {
+      if (err) console.error('Error clearing voice notes:', err);
+      else console.log('✅ Voice notes cleared');
+    });
+    
+    db.run('DELETE FROM users WHERE id > 1', (err) => {
+      if (err) console.error('Error clearing users:', err);
+      else console.log('✅ Users cleared (keeping admin user)');
+    });
+    
+    console.log('🎉 All data cleared successfully');
+    res.json({ 
+      message: 'All data cleared successfully',
+      cleared: ['videos', 'global_chat_messages', 'voice_notes', 'users']
+    });
   });
 });
 
