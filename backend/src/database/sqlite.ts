@@ -58,6 +58,13 @@ export const initializeDatabase = () => {
       // Ignore error if column already exists
     });
 
+    // Add updated_at column if it doesn't exist (for existing databases)
+    db.run(`
+      ALTER TABLE videos ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    `, (err) => {
+      // Ignore error if column already exists
+    });
+
 
 
 

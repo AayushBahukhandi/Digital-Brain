@@ -49,31 +49,36 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       return res.status(400).json({ error: 'Unsupported platform - only YouTube, Instagram, X (Twitter), and Facebook are supported' });
     }
 
-    // Check if video already exists (check by content ID, not URL)
+    // Check if video already exists (check by exact URL first, then content ID)
     const existingVideo = await new Promise<any>((resolve, reject) => {
-      db.get('SELECT * FROM videos WHERE youtube_url LIKE ? AND platform = ?', [`%${contentId}%`, platform], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+      // First try exact URL match
+      db.get('SELECT * FROM videos WHERE youtube_url = ? AND platform = ?', [url, platform], (err, row) => {
+        if (err) {
+          reject(err);
+        } else if (row) {
+          resolve(row);
+        } else {
+          // If no exact URL match, try content ID match
+          db.get('SELECT * FROM videos WHERE youtube_url LIKE ? AND platform = ?', [`%${contentId}%`, platform], (err2, row2) => {
+            if (err2) reject(err2);
+            else resolve(row2);
+          });
+        }
       });
     });
 
     if (existingVideo) {
-      console.log(`${platform} content already exists with ID: ${existingVideo.id}`);
-      return res.status(200).json({
-        id: existingVideo.id,
-        url: existingVideo.youtube_url,
-        title: existingVideo.title,
-        transcript: existingVideo.transcript,
-        summary: existingVideo.summary,
-        tags: existingVideo.tags ? existingVideo.tags.split(',') : [],
-        platform: existingVideo.platform,
-        contentId,
-        message: `${platform} content already processed`
-      });
+      console.log(`🔄 Found existing ${platform} content with ID: ${existingVideo.id}`);
+      console.log(`🔄 Existing title: ${existingVideo.title}`);
+      console.log(`🔄 Existing URL: ${existingVideo.youtube_url}`);
+      console.log(`🔄 Processing new request to replace existing content...`);
+      
+      // Continue processing to replace the existing video with fresh data
+      // We'll update the existing record instead of creating a new one
+    } else {
+      console.log(`Processing new ${platform} content ID: ${contentId}`);
+      console.log(`Content URL: ${url}`);
     }
-
-    console.log(`Processing ${platform} content ID: ${contentId}`);
-    console.log(`Content URL: ${url}`);
 
     // Get transcript using the external API
     console.log(`Processing content for ${platform} ID: ${contentId}`);
@@ -87,6 +92,13 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
                         platform === 'facebook' ? 'Facebook Video' : 'Content'}`;
     let autoTags: string[] = [];
     
+    console.log('=== TRANSCRIPT RESULT ANALYSIS ===');
+    console.log('transcriptResult.success:', transcriptResult.success);
+    console.log('transcriptResult.title:', transcriptResult.title);
+    console.log('transcriptResult.method:', transcriptResult.method);
+    console.log('transcriptResult.error:', transcriptResult.error);
+    console.log('transcriptResult.transcript length:', transcriptResult.transcript?.length || 0);
+    
     if (transcriptResult.success) {
       fullTranscript = transcriptResult.transcript;
       summary = await TranscriptService.generateSummary(fullTranscript);
@@ -94,23 +106,42 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       // Generate auto tags based on content
       autoTags = TranscriptService.generateTags(fullTranscript, summary);
       
+      console.log('=== TITLE EXTRACTION PROCESS ===');
+      console.log('Initial contentTitle:', contentTitle);
+      console.log('transcriptResult.title check:', {
+        exists: !!transcriptResult.title,
+        value: transcriptResult.title,
+        isNotNoTitleFound: transcriptResult.title !== 'No title found',
+        trimmedLength: transcriptResult.title?.trim().length || 0
+      });
+      
       // Use title from external API if available
       if (transcriptResult.title && transcriptResult.title !== 'No title found' && transcriptResult.title.trim().length > 0) {
         contentTitle = transcriptResult.title;
+        console.log('✓ Using title from external API:', contentTitle);
       } else if (platform === 'youtube') {
+        console.log('External API title not available, trying YouTube direct extraction...');
         // Try to get title from YouTube directly
         try {
+          console.log(`Attempting to get YouTube title for video ID: ${contentId}`);
           const youtubeTitle = await TranscriptService.getYouTubeTitle(contentId);
+          console.log('YouTube title result:', youtubeTitle);
           if (youtubeTitle && youtubeTitle.trim().length > 0) {
             contentTitle = youtubeTitle;
+            console.log('✓ Using YouTube direct title:', contentTitle);
+          } else {
+            console.log('❌ YouTube direct title is empty or invalid');
           }
         } catch (error) {
-          console.log(`Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.log(`❌ Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.log('Error details:', error);
         }
+      } else {
+        console.log(`❌ No title extraction method available for platform: ${platform}`);
       }
       
       console.log(`✓ Transcript extracted using: ${transcriptResult.method} (${fullTranscript.length} chars)`);
-      console.log(`✓ Content title: ${contentTitle}`);
+      console.log(`✓ Final content title: ${contentTitle}`);
       console.log(`✓ Auto-generated tags: ${autoTags.join(', ')}`);
     } else {
       fullTranscript = `No transcript available for this ${platform} content (${contentId}). ${transcriptResult.error || 'Unknown error'}`;
@@ -118,36 +149,73 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       console.log(`✗ External API failed for ${contentId}: ${transcriptResult.error}`);
     }
     
-    // Save to database
-    const stmt = db.prepare(`
-      INSERT INTO videos (user_id, youtube_url, title, transcript, summary, tags, platform)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    
+    // Save to database (update existing or insert new)
     const tagsString = autoTags.join(',');
     
-    stmt.run([userId, url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Failed to save content' });
-      }
+    if (existingVideo) {
+      // Update existing video
+      console.log(`🔄 Updating existing video ID: ${existingVideo.id}`);
+      const updateStmt = db.prepare(`
+        UPDATE videos 
+        SET youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
       
-      console.log(`${platform} content saved with ID: ${this.lastID}`);
-      
-      res.json({
-        id: this.lastID,
-        url,
-        title: contentTitle,
-        transcript: fullTranscript,
-        summary,
-        tags: autoTags,
-        platform,
-        contentId,
-        note: platform === 'instagram' ? 'Instagram content processed successfully' : 
-              platform === 'x' || platform === 'twitter' ? 'X/Twitter content processed successfully' :
-              platform === 'facebook' ? 'Facebook content processed successfully' : undefined
+      updateStmt.run([url, contentTitle, fullTranscript, summary, tagsString, platform, existingVideo.id], function(err) {
+        if (err) {
+          console.error('Database update error:', err);
+          return res.status(500).json({ error: 'Failed to update content' });
+        }
+        
+        console.log(`✅ ${platform} content updated with ID: ${existingVideo.id}`);
+        
+        res.json({
+          id: existingVideo.id,
+          url,
+          title: contentTitle,
+          transcript: fullTranscript,
+          summary,
+          tags: autoTags,
+          platform,
+          contentId,
+          message: `${platform} content updated successfully`,
+          note: platform === 'instagram' ? 'Instagram content updated successfully' : 
+                platform === 'x' || platform === 'twitter' ? 'X/Twitter content updated successfully' :
+                platform === 'facebook' ? 'Facebook content updated successfully' : undefined
+        });
       });
-    });
+    } else {
+      // Insert new video
+      console.log(`➕ Creating new ${platform} content`);
+      const insertStmt = db.prepare(`
+        INSERT INTO videos (user_id, youtube_url, title, transcript, summary, tags, platform)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      insertStmt.run([userId, url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
+        if (err) {
+          console.error('Database insert error:', err);
+          return res.status(500).json({ error: 'Failed to save content' });
+        }
+        
+        console.log(`✅ ${platform} content saved with ID: ${this.lastID}`);
+        
+        res.json({
+          id: this.lastID,
+          url,
+          title: contentTitle,
+          transcript: fullTranscript,
+          summary,
+          tags: autoTags,
+          platform,
+          contentId,
+          message: `${platform} content processed successfully`,
+          note: platform === 'instagram' ? 'Instagram content processed successfully' : 
+                platform === 'x' || platform === 'twitter' ? 'X/Twitter content processed successfully' :
+                platform === 'facebook' ? 'Facebook content processed successfully' : undefined
+        });
+      });
+    }
     
   } catch (error) {
     console.error('Process content error:', error);
@@ -664,6 +732,27 @@ videoRoutes.post('/clear-all', (req, res) => {
     db.run('DELETE FROM global_chat_messages');
     console.log('All data cleared');
     res.json({ message: 'All data cleared successfully' });
+  });
+});
+
+// Clear specific video by URL (for testing duplicate detection)
+videoRoutes.post('/clear-by-url', (req, res) => {
+  const { url } = req.body;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+  
+  db.run('DELETE FROM videos WHERE youtube_url = ?', [url], function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to clear video' });
+    }
+    
+    res.json({ 
+      message: 'Video cleared successfully', 
+      deletedCount: this.changes,
+      url: url
+    });
   });
 });
 

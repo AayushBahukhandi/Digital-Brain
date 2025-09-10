@@ -162,6 +162,10 @@ export class TranscriptService {
      * Call YouTube transcript API
      */
     private static async callYouTubeAPI(url: string): Promise<TranscriptResult> {
+        console.log('=== YOUTUBE API CALL ===');
+        console.log('Request URL:', url);
+        console.log('API endpoint: https://tactiq-apps-prod.tactiq.io/transcript');
+        
         const response = await axios.post('https://tactiq-apps-prod.tactiq.io/transcript', {
             videoUrl: url,
             langCode: 'en'
@@ -172,18 +176,31 @@ export class TranscriptService {
             timeout: 30000
         });
 
+        console.log('YouTube API response status:', response.status);
+        console.log('YouTube API response data:', JSON.stringify(response.data, null, 2));
+
         if (!response.data) {
+            console.log('❌ No data received from YouTube API');
             throw new Error('No data received from YouTube API');
         }
 
         const data = response.data as ExternalTranscriptResponse;
+        console.log('Parsed data:', {
+            title: data.title,
+            captionsLength: data.captions?.length || 0,
+            hasTitle: !!data.title,
+            titleLength: data.title?.length || 0
+        });
+        
         const transcript = this.convertCaptionsToText(data.captions);
+        console.log('Converted transcript length:', transcript.length);
 
         if (transcript.length < 10) {
+            console.log('❌ Transcript too short:', transcript.length);
             throw new Error('Transcript too short - may be invalid');
         }
 
-        return {
+        const result = {
             success: true,
             transcript,
             method: 'external-api',
@@ -191,6 +208,15 @@ export class TranscriptService {
             captions: data.captions,
             platform: 'youtube'
         };
+        
+        console.log('✓ YouTube API success:', {
+            success: result.success,
+            title: result.title,
+            transcriptLength: result.transcript.length,
+            method: result.method
+        });
+
+        return result;
     }
 
     /**
@@ -544,43 +570,65 @@ export class TranscriptService {
      */
     static async getYouTubeTitle(videoId: string): Promise<string> {
         try {
+            console.log('=== YOUTUBE DIRECT TITLE EXTRACTION ===');
             console.log(`Fetching YouTube title for video ID: ${videoId}`);
+            const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            console.log('YouTube URL:', youtubeUrl);
 
-            const response = await axios.get(`https://www.youtube.com/watch?v=${videoId}`, {
+            const response = await axios.get(youtubeUrl, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 },
                 timeout: 10000
             });
 
+            console.log('YouTube page response status:', response.status);
+            console.log('YouTube page response content length:', (response.data as string)?.length || 0);
+
             // Extract title from HTML using regex
             const htmlContent = response.data as string;
+            console.log('HTML content preview (first 500 chars):', htmlContent.substring(0, 500));
+            
             const titleMatch = htmlContent.match(/<title>([^<]+)<\/title>/i);
+            console.log('Title regex match:', titleMatch);
+            
             if (titleMatch && titleMatch[1]) {
                 let title = titleMatch[1].trim();
+                console.log('Raw title from regex:', title);
                 // Remove " - YouTube" suffix if present
                 title = title.replace(/\s*-\s*YouTube\s*$/, '').trim();
-                console.log(`✓ YouTube title extracted: ${title}`);
+                console.log(`✓ YouTube title extracted (regex method): ${title}`);
                 return title;
             }
 
             // Alternative method: look for JSON-LD structured data
+            console.log('Trying JSON-LD method...');
             const jsonLdMatch = htmlContent.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
+            console.log('JSON-LD match found:', !!jsonLdMatch);
+            
             if (jsonLdMatch) {
                 try {
+                    console.log('JSON-LD content:', jsonLdMatch[1]);
                     const jsonData = JSON.parse(jsonLdMatch[1]);
+                    console.log('Parsed JSON-LD:', jsonData);
                     if (jsonData.name) {
                         console.log(`✓ YouTube title from JSON-LD: ${jsonData.name}`);
                         return jsonData.name;
+                    } else {
+                        console.log('❌ No name field in JSON-LD data');
                     }
                 } catch (e) {
-                    // Ignore JSON parsing errors
+                    console.log('❌ JSON parsing error:', e);
                 }
+            } else {
+                console.log('❌ No JSON-LD script found');
             }
 
+            console.log('❌ Could not extract title from YouTube page using any method');
             throw new Error('Could not extract title from YouTube page');
         } catch (error) {
-            console.log(`Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            console.log(`❌ Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            console.log('Error details:', error);
             throw error;
         }
     }

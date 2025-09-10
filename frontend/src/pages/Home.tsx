@@ -17,7 +17,13 @@ export const Home = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('=== SUMMARIZE BUTTON CLICKED ===');
+    console.log('Input URL:', url);
+    console.log('URL length:', url.length);
+    console.log('URL trimmed:', url.trim());
+    
     if (!url.trim()) {
+      console.log('❌ No URL provided');
       toast({
         title: "URL Required",
         description: "Please enter a YouTube, Instagram, X (Twitter), or Facebook URL",
@@ -32,7 +38,14 @@ export const Home = () => {
     const isX = url.includes('x.com') || url.includes('twitter.com');
     const isFacebook = url.includes('facebook.com');
     
+    console.log('Platform detection:');
+    console.log('- isYoutube:', isYoutube);
+    console.log('- isInstagram:', isInstagram);
+    console.log('- isX:', isX);
+    console.log('- isFacebook:', isFacebook);
+    
     if (!isYoutube && !isInstagram && !isX && !isFacebook) {
+      console.log('❌ Unsupported URL detected');
       toast({
         title: "Unsupported URL",
         description: "Please enter a valid YouTube, Instagram, X (Twitter), or Facebook URL",
@@ -47,6 +60,7 @@ export const Home = () => {
     else if (isX) platform = 'x';
     else if (isFacebook) platform = 'facebook';
     
+    console.log('Selected platform:', platform);
     setCurrentPlatform(platform);
     setIsProcessing(true);
     
@@ -66,9 +80,18 @@ export const Home = () => {
         title: "Processing Facebook Content",
         description: "This may take 1-3 minutes to complete. Please wait...",
       });
+    } else {
+      toast({
+        title: "Processing Content",
+        description: "Extracting transcript and generating summary...",
+      });
     }
     
     try {
+      console.log('=== API REQUEST ===');
+      console.log('API endpoint:', API_ENDPOINTS.PROCESS_VIDEO);
+      console.log('Request body:', { url });
+      
       const token = localStorage.getItem('token');
       const response = await fetch(API_ENDPOINTS.PROCESS_VIDEO, {
         method: 'POST',
@@ -79,23 +102,44 @@ export const Home = () => {
         body: JSON.stringify({ url })
       });
 
+      console.log('API response status:', response.status);
+      console.log('API response ok:', response.ok);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ API error response:', errorText);
         throw new Error('Failed to process video');
       }
 
       const result = await response.json();
+      console.log('=== API RESPONSE ===');
+      console.log('Full result:', JSON.stringify(result, null, 2));
+      console.log('Result title:', result.title);
+      console.log('Result platform:', result.platform);
+      console.log('Result id:', result.id);
       
       const platform = result.platform || 'video';
       const contentType = platform === 'instagram' ? 'Instagram content' : 
                          platform === 'x' ? 'X/Twitter content' :
                          platform === 'facebook' ? 'Facebook content' : 'video';
       
-      if (result.message && result.message.includes('already processed')) {
+      console.log('Content type:', contentType);
+      console.log('Title from result:', result.title);
+      
+      if (result.message && result.message.includes('updated successfully')) {
+        console.log('✓ Content updated successfully');
+        toast({
+          title: "Updated!",
+          description: `${contentType.charAt(0).toUpperCase() + contentType.slice(1)} updated! Redirecting to notes...`
+        });
+      } else if (result.message && (result.message.includes('already processed') || result.message.includes('Found existing'))) {
+        console.log('✓ Content already exists');
         toast({
           title: `${contentType.charAt(0).toUpperCase() + contentType.slice(1)} Found!`,
           description: "Redirecting to notes..."
         });
       } else {
+        console.log('✓ New content processed');
         toast({
           title: "Success!",
           description: `${contentType.charAt(0).toUpperCase() + contentType.slice(1)} processed! Redirecting to notes...`
@@ -105,8 +149,10 @@ export const Home = () => {
       setUrl('');
       setCurrentPlatform(null);
       // Redirect to notes page
+      console.log('Redirecting to notes page:', `/notes/${result.id}`);
       navigate(`/notes/${result.id}`);
     } catch (error) {
+      console.log('❌ API request failed:', error);
       toast({
         title: "Error",
         description: "Failed to process content. Please try again.",
