@@ -1,0 +1,48 @@
+services:
+  # Backend API Service (includes Piper TTS)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: digital-brain-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/audio-output:/app/audio-output
+      - ./backend/tts-models:/app/tts-models
+      - ./backend/voice-recordings:/app/voice-recordings
+    networks:
+      - digital-brain-network
+    restart: unless-stopped
+
+  # Frontend Service (Development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: digital-brain-frontend
+    ports:
+      - "3000:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+    depends_on:
+      - backend
+    networks:
+      - digital-brain-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+networks:
+  digital-brain-network:
+    driver: bridge
+
+volumes:
+  backend-data:
+  audio-output:
+  tts-models:

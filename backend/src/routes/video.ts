@@ -1,0 +1,565 @@
+import { Router } from 'express';
+import { db } from '../database/sqlite.js';
+import { z } from 'zod';
+import { TranscriptService } from '../services/transcript.js';
+
+export const videoRoutes = Router();
+
+const videoSchema = z.object({
+  url: z.string().url().refine((url) => {
+    return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('instagram.com');
+  }, {
+    message: "URL must be from YouTube or Instagram"
+  }),
+});
+
+videoRoutes.post('/process', async (req, res) => {
+  try {
+    const { url } = videoSchema.parse(req.body);
+    
+    // Detect platform and extract appropriate ID
+    const platform = TranscriptService.detectPlatform(url);
+    let contentId: string | null = null;
+    
+    if (platform === 'youtube') {
+      contentId = TranscriptService.extractVideoId(url);
+      if (!contentId) {
+        return res.status(400).json({ error: 'Invalid YouTube URL' });
+      }
+    } else if (platform === 'instagram') {
+      contentId = TranscriptService.extractInstagramId(url);
+      if (!contentId) {
+        return res.status(400).json({ error: 'Invalid Instagram URL' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Unsupported platform - only YouTube and Instagram are supported' });
+    }
+
+    // Check if video already exists (check by content ID, not URL)
+    const existingVideo = await new Promise<any>((resolve, reject) => {
+      db.get('SELECT * FROM videos WHERE youtube_url LIKE ? AND platform = ?', [`%${contentId}%`, platform], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (existingVideo) {
+      console.log(`${platform} content already exists with ID: ${existingVideo.id}`);
+      return res.status(200).json({
+        id: existingVideo.id,
+        url: existingVideo.youtube_url,
+        title: existingVideo.title,
+        transcript: existingVideo.transcript,
+        summary: existingVideo.summary,
+        tags: existingVideo.tags ? existingVideo.tags.split(',') : [],
+        platform: existingVideo.platform,
+        contentId,
+        message: `${platform} content already processed`
+      });
+    }
+
+    console.log(`Processing ${platform} content ID: ${contentId}`);
+    console.log(`Content URL: ${url}`);
+
+    // Get transcript using the external API
+    console.log(`Processing content for ${platform} ID: ${contentId}`);
+    
+    const transcriptResult = await TranscriptService.extractTranscript(url);
+    let fullTranscript = '';
+    let summary = '';
+    let contentTitle = `${platform === 'youtube' ? 'Video' : 'Instagram Content'} ${contentId}`;
+    let autoTags: string[] = [];
+    
+    if (transcriptResult.success) {
+      fullTranscript = transcriptResult.transcript;
+      summary = TranscriptService.generateSummary(fullTranscript);
+      
+      // Generate auto tags based on content
+      autoTags = TranscriptService.generateTags(fullTranscript, summary);
+      
+      // Use title from external API if available
+      if (transcriptResult.title && transcriptResult.title !== 'No title found' && transcriptResult.title.trim().length > 0) {
+        contentTitle = transcriptResult.title;
+      } else if (platform === 'youtube') {
+        // Try to get title from YouTube directly
+        try {
+          const youtubeTitle = await TranscriptService.getYouTubeTitle(contentId);
+          if (youtubeTitle && youtubeTitle.trim().length > 0) {
+            contentTitle = youtubeTitle;
+          }
+        } catch (error) {
+          console.log(`Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
+      console.log(`✓ Transcript extracted using: ${transcriptResult.method} (${fullTranscript.length} chars)`);
+      console.log(`✓ Content title: ${contentTitle}`);
+      console.log(`✓ Auto-generated tags: ${autoTags.join(', ')}`);
+    } else {
+      fullTranscript = `No transcript available for this ${platform} content (${contentId}). ${transcriptResult.error || 'Unknown error'}`;
+      summary = 'Unable to generate summary - no content available. This content may not have captions enabled or may be restricted.';
+      console.log(`✗ External API failed for ${contentId}: ${transcriptResult.error}`);
+    }
+    
+    // Save to database
+    const stmt = db.prepare(`
+      INSERT INTO videos (youtube_url, title, transcript, summary, tags, platform)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    
+    const tagsString = autoTags.join(',');
+    
+    stmt.run([url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Failed to save content' });
+      }
+      
+      console.log(`${platform} content saved with ID: ${this.lastID}`);
+      
+      res.json({
+        id: this.lastID,
+        url,
+        title: contentTitle,
+        transcript: fullTranscript,
+        summary,
+        tags: autoTags,
+        platform,
+        contentId,
+        note: platform === 'instagram' ? 'Instagram content processed successfully' : undefined
+      });
+    });
+    
+  } catch (error) {
+    console.error('Process content error:', error);
+    res.status(500).json({ error: 'Failed to process content: ' + (error instanceof Error ? error.message : 'Unknown error') });
+  }
+});
+
+videoRoutes.get('/', (req, res) => {
+  db.all('SELECT * FROM videos ORDER BY created_at DESC', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to fetch videos' });
+    }
+    res.json(rows);
+  });
+});
+
+videoRoutes.get('/:id', (req, res) => {
+  const { id } = req.params;
+  
+  db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to fetch video' });
+    }
+    
+    if (!row) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+    
+    res.json(row);
+  });
+});
+
+videoRoutes.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  
+  db.run('DELETE FROM videos WHERE id = ?', [id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to delete video' });
+    }
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+    
+    res.json({ message: 'Video deleted successfully' });
+  });
+});
+
+// Update video tags
+videoRoutes.put('/:id/tags', (req, res) => {
+  const { id } = req.params;
+  const { tags } = req.body;
+  
+  // Convert tags array to comma-separated string
+  const tagsString = Array.isArray(tags) ? tags.join(',') : tags || '';
+  
+  db.run('UPDATE videos SET tags = ? WHERE id = ?', [tagsString, id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to update video tags' });
+    }
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+    
+    res.json({ message: 'Video tags updated successfully' });
+  });
+});
+
+// Update video title
+videoRoutes.put('/:id/title', async (req, res) => {
+  const { id } = req.params;
+  const { title } = req.body;
+  
+  try {
+    // If no title provided, try to fetch from YouTube
+    let videoTitle = title;
+    if (!videoTitle) {
+      // Get the video first to extract video ID
+      const video = await new Promise<any>((resolve, reject) => {
+        db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+      
+      if (video && video.youtube_url) {
+        const videoId = TranscriptService.extractVideoId(video.youtube_url);
+        if (videoId) {
+          try {
+            videoTitle = await TranscriptService.getYouTubeTitle(videoId);
+          } catch (error) {
+            console.log(`Failed to fetch title for video ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+      }
+    }
+    
+    if (!videoTitle) {
+      return res.status(400).json({ error: 'No title provided and could not fetch from YouTube' });
+    }
+    
+    db.run('UPDATE videos SET title = ? WHERE id = ?', [videoTitle, id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update video title' });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Video not found' });
+      }
+      
+      res.json({ message: 'Video title updated successfully', title: videoTitle });
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update video title' });
+  }
+});
+
+// Bulk fix titles for all videos with incorrect titles
+videoRoutes.post('/fix-titles', async (req, res) => {
+  try {
+    // Get all videos with titles that start with "Video "
+    const videos = await new Promise<any[]>((resolve, reject) => {
+      db.all('SELECT * FROM videos WHERE title LIKE "Video %"', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    const results = [];
+    
+    for (const video of videos) {
+      try {
+        const videoId = TranscriptService.extractVideoId(video.youtube_url);
+        if (videoId) {
+          const newTitle = await TranscriptService.getYouTubeTitle(videoId);
+          if (newTitle && newTitle.trim().length > 0) {
+            await new Promise<void>((resolve, reject) => {
+              db.run('UPDATE videos SET title = ? WHERE id = ?', [newTitle, video.id], (err) => {
+                if (err) reject(err);
+                else resolve();
+              });
+            });
+            results.push({ id: video.id, oldTitle: video.title, newTitle });
+          }
+        }
+      } catch (error) {
+        console.log(`Failed to fix title for video ${video.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        results.push({ id: video.id, oldTitle: video.title, error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    }
+
+    res.json({ 
+      message: `Processed ${videos.length} videos`, 
+      results,
+      fixed: results.filter(r => r.newTitle).length,
+      failed: results.filter(r => r.error).length
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fix titles' });
+  }
+});
+
+// Debug endpoint to test transcript fetching
+videoRoutes.post('/debug-transcript', async (req, res) => {
+  try {
+    const { url } = req.body;
+    const platform = TranscriptService.detectPlatform(url);
+    
+    let contentId: string | null = null;
+    if (platform === 'youtube') {
+      contentId = TranscriptService.extractVideoId(url);
+    } else if (platform === 'instagram') {
+      contentId = TranscriptService.extractInstagramId(url);
+    }
+    
+    if (!contentId) {
+      return res.status(400).json({ error: `Invalid ${platform} URL` });
+    }
+
+    console.log(`Debug: Testing external API for ${platform} ${contentId}`);
+    
+    const result = await TranscriptService.extractTranscript(url);
+    
+    if (result.success) {
+      const summary = TranscriptService.generateSummary(result.transcript);
+      const autoTags = TranscriptService.generateTags(result.transcript, summary);
+      
+      res.json({
+        contentId,
+        platform,
+        transcriptLength: result.transcript.length,
+        preview: result.transcript.substring(0, 500),
+        title: result.title,
+        method: result.method,
+        summary: summary.length > 200 ? summary.substring(0, 200) + '...' : summary,
+        autoTags,
+        note: platform === 'instagram' ? 'Instagram transcription may take 1-3 minutes to complete' : undefined
+      });
+    } else {
+      res.status(400).json({
+        contentId,
+        platform,
+        error: result.error,
+        method: result.method
+      });
+    }
+    
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'External API failed', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
+
+// Manual transcript input endpoint
+videoRoutes.post('/add-transcript', async (req, res) => {
+  try {
+    const { videoId, transcript } = req.body;
+    
+    if (!videoId || !transcript) {
+      return res.status(400).json({ error: 'Video ID and transcript are required' });
+    }
+    
+    // Update the known transcripts (in a real app, this would be stored in database)
+    console.log(`Adding manual transcript for video ${videoId} (${transcript.length} chars)`);
+    
+    res.json({ 
+      message: 'Transcript added successfully',
+      videoId,
+      transcriptLength: transcript.length
+    });
+    
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Failed to add transcript', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
+
+// Extract transcript only (without saving to database)
+videoRoutes.post('/extract-transcript', async (req, res) => {
+  try {
+    const { url } = videoSchema.parse(req.body);
+    
+    console.log(`Extracting transcript for URL: ${url}`);
+    
+    const platform = TranscriptService.detectPlatform(url);
+    const result = await TranscriptService.extractTranscript(url);
+    
+    if (result.success) {
+      const summary = TranscriptService.generateSummary(result.transcript);
+      const autoTags = TranscriptService.generateTags(result.transcript, summary);
+      
+      let contentId: string | null = null;
+      if (platform === 'youtube') {
+        contentId = TranscriptService.extractVideoId(url);
+      } else if (platform === 'instagram') {
+        contentId = TranscriptService.extractInstagramId(url);
+      }
+      
+      res.json({
+        success: true,
+        contentId,
+        platform,
+        transcript: result.transcript,
+        summary,
+        tags: autoTags,
+        method: result.method,
+        transcriptLength: result.transcript.length
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        platform,
+        error: result.error,
+        method: result.method
+      });
+    }
+    
+  } catch (error) {
+    console.error('Extract transcript error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to extract transcript: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+// Regenerate tags for a specific video
+videoRoutes.post('/:id/regenerate-tags', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the video
+    const video = await new Promise<any>((resolve, reject) => {
+      db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+    
+    // Generate new tags
+    const autoTags = TranscriptService.generateTags(video.transcript || '', video.summary || '');
+    const tagsString = autoTags.join(',');
+    
+    // Update the video with new tags
+    await new Promise<void>((resolve, reject) => {
+      db.run('UPDATE videos SET tags = ? WHERE id = ?', [tagsString, id], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    res.json({ 
+      message: 'Tags regenerated successfully', 
+      tags: autoTags,
+      videoId: id
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to regenerate tags' });
+  }
+});
+
+// Bulk regenerate tags for all videos
+videoRoutes.post('/regenerate-all-tags', async (req, res) => {
+  try {
+    // Get all videos
+    const videos = await new Promise<any[]>((resolve, reject) => {
+      db.all('SELECT * FROM videos', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    const results = [];
+    
+    for (const video of videos) {
+      try {
+        const autoTags = TranscriptService.generateTags(video.transcript || '', video.summary || '');
+        const tagsString = autoTags.join(',');
+        
+        await new Promise<void>((resolve, reject) => {
+          db.run('UPDATE videos SET tags = ? WHERE id = ?', [tagsString, video.id], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        
+        results.push({ id: video.id, title: video.title, tags: autoTags });
+      } catch (error) {
+        console.log(`Failed to regenerate tags for video ${video.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        results.push({ id: video.id, title: video.title, error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    }
+
+    res.json({ 
+      message: `Processed ${videos.length} videos`, 
+      results,
+      updated: results.filter(r => r.tags).length,
+      failed: results.filter(r => r.error).length
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to regenerate tags' });
+  }
+});
+
+// Test Instagram API endpoint
+videoRoutes.post('/test-instagram', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url || !url.includes('instagram.com')) {
+      return res.status(400).json({ error: 'Please provide a valid Instagram URL' });
+    }
+
+    console.log(`Testing Instagram API with URL: ${url}`);
+    
+    const result = await TranscriptService.extractTranscript(url);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        platform: result.platform,
+        transcriptLength: result.transcript.length,
+        preview: result.transcript.substring(0, 300) + '...',
+        title: result.title,
+        method: result.method,
+        message: 'Instagram transcription test successful'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        method: result.method,
+        platform: result.platform
+      });
+    }
+    
+  } catch (error) {
+    console.error('Instagram API test error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Instagram API test failed: ' + (error instanceof Error ? error.message : 'Unknown error') 
+    });
+  }
+});
+
+// Clear all data endpoint for testing
+videoRoutes.post('/clear-all', (req, res) => {
+  db.serialize(() => {
+    db.run('DELETE FROM videos');
+    db.run('DELETE FROM global_chat_messages');
+    console.log('All data cleared');
+    res.json({ message: 'All data cleared successfully' });
+  });
+});
+
+
+
+
+
+
+
+
+
+

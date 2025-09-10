@@ -1,0 +1,46 @@
+# Multi-stage build for production deployment
+FROM node:20-alpine AS frontend-build
+
+# Build frontend
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM node:20-alpine AS backend-build
+
+# Build backend
+WORKDIR /app/backend
+COPY backend/package*.json ./
+RUN npm ci
+COPY backend/ ./
+RUN npm run build
+
+FROM nginx:alpine
+
+# Install Node.js for backend
+RUN apk add --no-cache nodejs npm
+
+# Copy built frontend to nginx
+COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
+
+# Copy backend
+COPY --from=backend-build /app/backend /app/backend
+WORKDIR /app/backend
+
+# Copy nginx config
+COPY nginx.production.conf /etc/nginx/conf.d/default.conf
+
+# Install PM2 for process management
+RUN npm install -g pm2
+
+# Create startup script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'cd /app/backend && pm2 start npm --name "backend" -- start &' >> /start.sh && \
+    echo 'nginx -g "daemon off;"' >> /start.sh && \
+    chmod +x /start.sh
+
+EXPOSE 80
+
+CMD ["/start.sh"]

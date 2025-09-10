@@ -1,0 +1,456 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark Mode Optimized Color Palette */
+    --background: #0F172A; /* Slate-900 - perfect for dark mode */
+    --foreground: #F1F5F9; /* Slate-100 - softer than pure white */
+    --card: #334155; /* Slate-700 */
+    --card-foreground: #F1F5F9; /* Slate-100 */
+    --popover: #334155; /* Slate-700 */
+    --popover-foreground: #F1F5F9; /* Slate-100 */
+    --primary: #8B5CF6; /* Purple - easier on eyes in dark mode */
+    --primary-foreground: #F1F5F9; /* Slate-100 */
+    --secondary: #06B6D4; /* Cyan - great contrast in dark */
+    --secondary-foreground: #F1F5F9; /* Slate-100 */
+    --muted: #1E293B; /* Slate-800 */
+    --muted-foreground: #CBD5E1; /* Slate-300 */
+    --accent: #F59E0B; /* Amber - warm accent for dark mode */
+    --accent-foreground: #F1F5F9; /* Slate-100 */
+    --destructive: #EF4444; /* Red */
+    --destructive-foreground: #F1F5F9; /* Slate-100 */
+    --border: #475569; /* Slate-600 */
+    --input: #374151; /* Gray-700 */
+    --ring: #8B5CF6; /* Primary with 40% opacity */
+    --radius: 0.75rem;
+    
+    /* Custom Design System Variables */
+    --primary-dark: #7C3AED; /* Primary Dark */
+    --primary-hover: #A78BFA; /* Softer purple for hover */
+    --secondary-dark: #0891B2; /* Secondary Dark */
+    --secondary-hover: #22D3EE; /* Bright cyan hover */
+    --surface: #1E293B; /* Slate-800 */
+    --card-hover: #475569; /* Slate-600 for hover */
+    --text-primary: #F1F5F9; /* Slate-100 */
+    --text-secondary: #CBD5E1; /* Slate-300 */
+    --text-muted: #94A3B8; /* Slate-400 */
+    --accent-hover: #FBBF24; /* Accent Hover */
+    --success: #10B981; /* Emerald */
+    --success-hover: #34D399; /* Success Hover */
+    --warning: #F59E0B; /* Amber */
+    --error: #EF4444; /* Red */
+    --error-hover: #F87171; /* Error Hover */
+    --border-hover: #64748B; /* Slate-500 */
+    --input-focus: #4B5563; /* Gray-600 */
+  }
+
+  /* Force dark theme */
+  .dark {
+    --background: #0F172A; /* Slate-900 - perfect for dark mode */
+    --foreground: #F1F5F9; /* Slate-100 - softer than pure white */
+    --card: #334155; /* Slate-700 */
+    --card-foreground: #F1F5F9; /* Slate-100 */
+    --popover: #334155; /* Slate-700 */
+    --popover-foreground: #F1F5F9; /* Slate-100 */
+    --primary: #8B5CF6; /* Purple - easier on eyes in dark mode */
+    --primary-foreground: #F1F5F9; /* Slate-100 */
+    --secondary: #06B6D4; /* Cyan - great contrast in dark */
+    --secondary-foreground: #F1F5F9; /* Slate-100 */
+    --muted: #1E293B; /* Slate-800 */
+    --muted-foreground: #CBD5E1; /* Slate-300 */
+    --accent: #F59E0B; /* Amber - warm accent for dark mode */
+    --accent-foreground: #F1F5F9; /* Slate-100 */
+    --destructive: #EF4444; /* Red */
+    --destructive-foreground: #F1F5F9; /* Slate-100 */
+    --border: #475569; /* Slate-600 */
+    --input: #374151; /* Gray-700 */
+    --ring: #8B5CF6; /* Primary with 40% opacity */
+    --primary-dark: #7C3AED; /* Primary Dark */
+    --primary-hover: #A78BFA; /* Softer purple for hover */
+    --secondary-dark: #0891B2; /* Secondary Dark */
+    --secondary-hover: #22D3EE; /* Bright cyan hover */
+    --surface: #1E293B; /* Slate-800 */
+    --card-hover: #475569; /* Slate-600 for hover */
+    --text-primary: #F1F5F9; /* Slate-100 */
+    --text-secondary: #CBD5E1; /* Slate-300 */
+    --text-muted: #94A3B8; /* Slate-400 */
+    --accent-hover: #FBBF24; /* Accent Hover */
+    --success: #10B981; /* Emerald */
+    --success-hover: #34D399; /* Success Hover */
+    --warning: #F59E0B; /* Amber */
+    --error: #EF4444; /* Red */
+    --error-hover: #F87171; /* Error Hover */
+    --border-hover: #64748B; /* Slate-500 */
+    --input-focus: #4B5563; /* Gray-600 */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    background-color: #0F172A; /* Force dark background */
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #0F172A !important; /* Force dark background */
+    color: #F1F5F9 !important; /* Force light text */
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #F1F5F9 !important; /* Force light text for headings */
+  }
+  
+  code, pre {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+@layer components {
+  /* Glass morphism effect - Exact from specification */
+  .glass {
+    backdrop-filter: blur(12px); /* backdrop-blur-md */
+    background-color: rgba(15, 23, 42, 0.8); /* bg-opacity-80 with Slate-900 */
+  }
+  
+  /* Force dark theme for all elements */
+  .dark * {
+    color-scheme: dark;
+  }
+  
+  /* Comprehensive yellow color removal */
+  .dark *[style*="yellow"], .dark *[style*="#ff"], .dark *[style*="#FF"] {
+    background-color: #8B5CF6 !important; /* Primary */
+    color: #F1F5F9 !important; /* Text Primary */
+  }
+  
+  /* Remove any yellow from gradients */
+  .dark *[class*="from-yellow"], .dark *[class*="to-yellow"], .dark *[class*="via-yellow"] {
+    background: linear-gradient(to right, #8B5CF6, #7C3AED) !important; /* Primary gradient */
+  }
+  
+  /* Ensure proper contrast for all text elements */
+  .dark p, .dark span, .dark div, .dark a {
+    color: inherit;
+  }
+  
+  /* Override any potential light theme styles */
+  .dark input, .dark textarea, .dark select {
+    background-color: #374151 !important; /* Gray-700 */
+    color: #F1F5F9 !important; /* Slate-100 */
+    border-color: #475569 !important; /* Slate-600 */
+    transition: all 0.2s ease;
+  }
+  
+  .dark input:hover, .dark textarea:hover, .dark select:hover {
+    background-color: #4B5563 !important; /* Input focus */
+    border-color: #8B5CF6 !important; /* Primary border */
+  }
+  
+  .dark input:focus, .dark textarea:focus, .dark select:focus {
+    background-color: #4B5563 !important; /* Input focus */
+    border-color: #8B5CF6 !important; /* Primary border */
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important; /* Primary ring */
+  }
+  
+  .dark input::placeholder, .dark textarea::placeholder {
+    color: #94A3B8 !important; /* Slate-400 */
+  }
+  
+  /* Remove any yellow colors - force design system colors only */
+  .dark * {
+    /* Override any potential yellow colors */
+    --tw-bg-opacity: 1;
+    --tw-text-opacity: 1;
+    --tw-border-opacity: 1;
+  }
+  
+  /* Ensure buttons use only design system colors */
+  .dark button {
+    background-color: #8B5CF6 !important; /* Primary Purple */
+    color: #F1F5F9 !important; /* Text Primary */
+    border-color: #8B5CF6 !important;
+  }
+  
+  .dark button:hover {
+    background-color: #A78BFA !important; /* Primary Hover */
+  }
+  
+  .dark button:focus {
+    background-color: #7C3AED !important; /* Primary Dark */
+    box-shadow: 0 0 0 2px #8B5CF6 !important; /* Primary ring */
+  }
+  
+  /* Override any default Tailwind yellow colors */
+  .dark .bg-yellow-500, .dark .bg-yellow-400, .dark .bg-yellow-300, .dark .bg-yellow-200, .dark .bg-yellow-100 {
+    background-color: #8B5CF6 !important; /* Primary */
+  }
+  
+  .dark .text-yellow-500, .dark .text-yellow-400, .dark .text-yellow-300, .dark .text-yellow-200, .dark .text-yellow-100 {
+    color: #F1F5F9 !important; /* Text Primary */
+  }
+  
+  .dark .border-yellow-500, .dark .border-yellow-400, .dark .border-yellow-300, .dark .border-yellow-200, .dark .border-yellow-100 {
+    border-color: #8B5CF6 !important; /* Primary */
+  }
+  
+  /* Override any default browser button styles */
+  .dark button:not([class*="bg-"]):not([class*="text-"]) {
+    background-color: #8B5CF6 !important; /* Primary */
+    color: #F1F5F9 !important; /* Text Primary */
+    border: 1px solid #8B5CF6 !important;
+  }
+  
+  .dark button:not([class*="bg-"]):not([class*="text-"]):hover {
+    background-color: #A78BFA !important; /* Primary Hover */
+  }
+  
+  /* Ensure all interactive elements use design system colors */
+  .dark a:not([class*="text-"]) {
+    color: #8B5CF6 !important; /* Primary */
+  }
+  
+  .dark a:not([class*="text-"]):hover {
+    color: #A78BFA !important; /* Primary Hover */
+  }
+  
+  /* Override any potential default form element colors */
+  .dark input:not([class*="bg-"]):not([class*="text-"]) {
+    background-color: #374151 !important; /* Gray-700 */
+    color: #F1F5F9 !important; /* Text Primary */
+    border-color: #475569 !important; /* Slate-600 */
+    transition: all 0.2s ease;
+  }
+  
+  .dark input:not([class*="bg-"]):not([class*="text-"]):hover {
+    background-color: #4B5563 !important; /* Input focus */
+    border-color: #8B5CF6 !important; /* Primary border */
+  }
+  
+  .dark input:not([class*="bg-"]):not([class*="text-"]):focus {
+    background-color: #4B5563 !important; /* Input focus */
+    border-color: #8B5CF6 !important; /* Primary border */
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important; /* Primary ring */
+  }
+  
+  .dark textarea:not([class*="bg-"]):not([class*="text-"]) {
+    background-color: #374151 !important; /* Gray-700 */
+    color: #F1F5F9 !important; /* Text Primary */
+    border-color: #475569 !important; /* Slate-600 */
+    transition: all 0.2s ease;
+  }
+  
+  .dark textarea:not([class*="bg-"]):not([class*="text-"]):hover {
+    background-color: #4B5563 !important; /* Input focus */
+    border-color: #8B5CF6 !important; /* Primary border */
+  }
+  
+  .dark textarea:not([class*="bg-"]):not([class*="text-"]):focus {
+    background-color: #4B5563 !important; /* Input focus */
+    border-color: #8B5CF6 !important; /* Primary border */
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important; /* Primary ring */
+  }
+  
+  /* Custom animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-scale-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .animate-scale-hover:hover {
+    transform: scale(1.02);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  }
+  
+  .animate-card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  }
+  
+  .animate-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -10px rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Only apply colored hover if not using white hover */
+  .animate-card-hover:not(.hover-white):hover {
+    background-color: #334155 !important; /* Card hover */
+    border-color: #8B5CF6 !important; /* Primary border on hover */
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
+  
+  /* Enhanced hover effects for better visual feedback */
+  .hover-primary:hover {
+    background-color: #A78BFA !important; /* Primary hover */
+    border-color: #A78BFA !important;
+  }
+  
+  .hover-secondary:hover {
+    background-color: #22D3EE !important; /* Secondary hover */
+    border-color: #22D3EE !important;
+  }
+  
+  .hover-accent:hover {
+    background-color: #FBBF24 !important; /* Accent hover */
+    border-color: #FBBF24 !important;
+  }
+  
+  .hover-card:hover {
+    background-color: #475569 !important; /* Card hover */
+    border-color: #8B5CF6 !important; /* Primary border */
+  }
+  
+  .hover-surface:hover {
+    background-color: #374151 !important; /* Surface hover */
+    border-color: #475569 !important; /* Border hover */
+  }
+  
+  /* Typography scale - Exact from Specification */
+  .text-h1 {
+    font-size: 36px;
+    line-height: 44px;
+    font-weight: 700;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .text-h2 {
+    font-size: 30px;
+    line-height: 36px;
+    font-weight: 600;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .text-h3 {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .text-body {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .text-small {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer utilities {
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-2px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+  to {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.6);
+  }
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
