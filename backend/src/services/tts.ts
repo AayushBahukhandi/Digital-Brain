@@ -106,9 +106,9 @@ export class TTSService {
     return new Promise((resolve) => {
       // Try different piper command locations for Railway
       const piperCommands = [
+        '/opt/venv/bin/piper',
         'piper',
         'python3 -m piper',
-        '/opt/venv/bin/piper',
         '/usr/local/bin/piper'
       ];
 
@@ -120,6 +120,9 @@ export class TTSService {
         if (cmd.includes('python3')) {
           piperCommand = 'python3';
           piperArgs = ['-m', 'piper', '--model', modelPath, '--output_file', outputPath];
+        } else if (cmd.includes('/opt/venv/bin/piper')) {
+          piperCommand = '/opt/venv/bin/piper';
+          piperArgs = ['--model', modelPath, '--output_file', outputPath];
         } else {
           piperCommand = cmd;
           piperArgs = ['--model', modelPath, '--output_file', outputPath];

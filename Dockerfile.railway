@@ -4,8 +4,9 @@ FROM node:20-alpine
 # Install build tools for native modules and audio processing
 RUN apk add --no-cache python3 make g++ sox ffmpeg espeak espeak-dev py3-pip
 
-# Install Python dependencies for TTS
-RUN python3 -m pip install --no-cache-dir piper-tts
+# Install Python dependencies for TTS using virtual environment
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir piper-tts
 
 # Install dependencies for backend
 WORKDIR /app/backend
