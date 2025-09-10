@@ -92,12 +92,8 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
                         platform === 'facebook' ? 'Facebook Video' : 'Content'}`;
     let autoTags: string[] = [];
     
-    console.log('=== TRANSCRIPT RESULT ANALYSIS ===');
-    console.log('transcriptResult.success:', transcriptResult.success);
-    console.log('transcriptResult.title:', transcriptResult.title);
-    console.log('transcriptResult.method:', transcriptResult.method);
-    console.log('transcriptResult.error:', transcriptResult.error);
-    console.log('transcriptResult.transcript length:', transcriptResult.transcript?.length || 0);
+    // Essential logging only
+    console.log(`Transcript success: ${transcriptResult.success}, method: ${transcriptResult.method}`);
     
     if (transcriptResult.success) {
       fullTranscript = transcriptResult.transcript;
@@ -106,43 +102,22 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       // Generate auto tags based on content
       autoTags = TranscriptService.generateTags(fullTranscript, summary);
       
-      console.log('=== TITLE EXTRACTION PROCESS ===');
-      console.log('Initial contentTitle:', contentTitle);
-      console.log('transcriptResult.title check:', {
-        exists: !!transcriptResult.title,
-        value: transcriptResult.title,
-        isNotNoTitleFound: transcriptResult.title !== 'No title found',
-        trimmedLength: transcriptResult.title?.trim().length || 0
-      });
-      
       // Use title from external API if available
       if (transcriptResult.title && transcriptResult.title !== 'No title found' && transcriptResult.title.trim().length > 0) {
         contentTitle = transcriptResult.title;
-        console.log('✓ Using title from external API:', contentTitle);
       } else if (platform === 'youtube') {
-        console.log('External API title not available, trying YouTube direct extraction...');
         // Try to get title from YouTube directly
         try {
-          console.log(`Attempting to get YouTube title for video ID: ${contentId}`);
           const youtubeTitle = await TranscriptService.getYouTubeTitle(contentId);
-          console.log('YouTube title result:', youtubeTitle);
           if (youtubeTitle && youtubeTitle.trim().length > 0) {
             contentTitle = youtubeTitle;
-            console.log('✓ Using YouTube direct title:', contentTitle);
-          } else {
-            console.log('❌ YouTube direct title is empty or invalid');
           }
         } catch (error) {
-          console.log(`❌ Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          console.log('Error details:', error);
+          // Silent fail for title extraction
         }
-      } else {
-        console.log(`❌ No title extraction method available for platform: ${platform}`);
       }
       
-      console.log(`✓ Transcript extracted using: ${transcriptResult.method} (${fullTranscript.length} chars)`);
-      console.log(`✓ Final content title: ${contentTitle}`);
-      console.log(`✓ Auto-generated tags: ${autoTags.join(', ')}`);
+      console.log(`✓ Content processed: ${contentTitle} (${fullTranscript.length} chars)`);
     } else {
       fullTranscript = `No transcript available for this ${platform} content (${contentId}). ${transcriptResult.error || 'Unknown error'}`;
       summary = `Unable to generate summary - no content available. This ${platform} content may not have captions enabled or may be restricted.`;
@@ -157,7 +132,7 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       console.log(`🔄 Updating existing video ID: ${existingVideo.id}`);
       const updateStmt = db.prepare(`
         UPDATE videos 
-        SET youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?, updated_at = CURRENT_TIMESTAMP
+        SET youtube_url = ?, title = ?, transcript = ?, summary = ?, tags = ?, platform = ?
         WHERE id = ?
       `);
       
