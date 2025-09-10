@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Brain, Home, FileText, MessageCircle } from 'lucide-react';
+import { Brain, Home, FileText, MessageCircle, LogOut, User } from 'lucide-react';
 import { Button } from './ui/button';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +10,7 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const { user, logout } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -77,6 +79,22 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Link>
               </Button>
             </nav>
+            
+            {/* User menu */}
+            <div className="flex items-center space-x-3 ml-4">
+              <div className="flex items-center space-x-2 text-white">
+                <User className="h-4 w-4" />
+                <span className="text-sm">{user?.username}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="!text-white hover:!text-white hover:bg-red-500/20 transition-all duration-200"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
             
           </div>
         </div>

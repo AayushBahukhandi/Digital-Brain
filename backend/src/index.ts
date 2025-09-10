@@ -7,9 +7,8 @@ import { notesRoutes } from './routes/notes.js';
 import { chatRoutes } from './routes/chat.js';
 import { ttsRoutes } from './routes/tts.js';
 import { voiceNotesRoutes } from './routes/voice-notes.js';
+import { authRoutes } from './routes/auth.js';
 import { initializeDatabase } from './database/sqlite.js';
-import { seedSampleData } from './seed-data.js';
-
 dotenv.config();
 
 const app = express();
@@ -41,12 +40,8 @@ app.options('*', (req, res) => {
 // Initialize database
 initializeDatabase();
 
-// Seed sample data
-setTimeout(() => {
-  seedSampleData();
-}, 1000);
-
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/chat', chatRoutes);

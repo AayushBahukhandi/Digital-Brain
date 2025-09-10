@@ -1,25 +1,64 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from './components/ui/toaster';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { Notes } from './pages/Notes';
 import { AllNotes } from './pages/AllNotes';
 import { GlobalChat } from './pages/GlobalChat';
+import { Login } from './pages/Login';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  return user ? <>{children}</> : <Navigate to="/login" />;
+};
+
+const AppRoutes = () => {
+  const { user } = useAuth();
+  
+  return (
+    <Router>
+      <Routes>
+        <Route 
+          path="/login" 
+          element={user ? <Navigate to="/" /> : <Login />} 
+        />
+        <Route 
+          path="/*" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/notes/:videoId" element={<Notes />} />
+                  <Route path="/all-notes" element={<AllNotes />} />
+                  <Route path="/chat" element={<GlobalChat />} />
+                </Routes>
+                <Toaster />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+      </Routes>
+    </Router>
+  );
+};
 
 function App() {
   return (
     <div className="dark">
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/notes/:videoId" element={<Notes />} />
-            <Route path="/all-notes" element={<AllNotes />} />
-            <Route path="/chat" element={<GlobalChat />} />
-          </Routes>
-          <Toaster />
-        </Layout>
-      </Router>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { db } from '../database/sqlite.js';
 import { OllamaService } from '../services/ollama.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 
 export const chatRoutes = Router();
 
 // Get global chat messages
-chatRoutes.get('/global', (req, res) => {
-  db.all('SELECT * FROM global_chat_messages ORDER BY created_at ASC', (err, rows) => {
+chatRoutes.get('/global', authenticateToken, (req: AuthRequest, res) => {
+  const userId = req.user?.userId;
+  db.all('SELECT * FROM global_chat_messages WHERE user_id = ? ORDER BY created_at ASC', [userId], (err, rows) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Failed to fetch chat messages' });
@@ -22,22 +24,37 @@ chatRoutes.get('/global', (req, res) => {
   });
 });
 
+// Clear global chat messages
+chatRoutes.delete('/global', authenticateToken, (req: AuthRequest, res) => {
+  const userId = req.user?.userId;
+  db.run('DELETE FROM global_chat_messages WHERE user_id = ?', [userId], (err) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Failed to clear chat messages' });
+    }
+    
+    res.json({ message: 'Chat history cleared successfully' });
+  });
+});
+
 // Send global chat message
-chatRoutes.post('/global', async (req, res) => {
+chatRoutes.post('/global', authenticateToken, async (req: AuthRequest, res) => {
   const { message } = req.body;
+  const userId = req.user?.userId;
   
   if (!message || message.trim().length === 0) {
     return res.status(400).json({ error: 'Message is required' });
   }
   
   try {
-    // Search across all videos for relevant content
-    const searchResults = await searchAcrossAllVideos(message);
+    // Search across user's videos for relevant content
+    const searchResults = await searchAcrossUserVideos(message, userId!);
     const response = await generateGlobalChatResponse(message, searchResults);
     
-    const stmt = db.prepare('INSERT INTO global_chat_messages (message, response, matched_videos) VALUES (?, ?, ?)');
+    const stmt = db.prepare('INSERT INTO global_chat_messages (user_id, message, response, matched_videos) VALUES (?, ?, ?, ?)');
     
     stmt.run([
+      userId,
       message.trim(), 
       response, 
       JSON.stringify(searchResults.map(r => ({ id: r.id, title: r.title, relevance_score: r.relevance_score })))
@@ -82,9 +99,9 @@ function extractSearchTerms(query: string): string[] {
   return terms;
 }
 
-async function searchAcrossAllVideos(query: string): Promise<any[]> {
+async function searchAcrossUserVideos(query: string, userId: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM videos', (err, videos) => {
+    db.all('SELECT * FROM videos WHERE user_id = ?', [userId], (err, videos) => {
       if (err) {
         reject(err);
         return;

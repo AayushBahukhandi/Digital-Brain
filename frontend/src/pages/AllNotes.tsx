@@ -36,7 +36,12 @@ export const AllNotes = () => {
 
   const fetchAllVideos = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/videos`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/videos`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setVideos(data);
@@ -75,8 +80,12 @@ export const AllNotes = () => {
     }
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:3001/api/videos/${videoId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {

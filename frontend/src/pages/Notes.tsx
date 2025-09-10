@@ -38,7 +38,12 @@ export const Notes = () => {
 
   const fetchVideoData = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/videos/${videoId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/videos/${videoId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setVideo(data);
@@ -60,10 +65,12 @@ export const Notes = () => {
     if (!video) return;
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:3001/api/videos/${video.id}/tags`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ tags }),
       });
@@ -103,10 +110,12 @@ export const Notes = () => {
     if (!video) return;
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:3001/api/videos/${video.id}/title`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({}), // Empty body to trigger auto-fetch
       });
@@ -135,10 +144,12 @@ export const Notes = () => {
     if (!video) return;
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:3001/api/videos/${video.id}/regenerate-tags`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
       });
 

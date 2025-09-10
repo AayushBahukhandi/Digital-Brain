@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../hooks/use-toast';
-import { MessageCircle, Send, ArrowLeft, Video } from 'lucide-react';
+import { MessageCircle, Send, ArrowLeft, Video, Trash2 } from 'lucide-react';
 
 interface ChatMessage {
   id: number;
@@ -39,7 +39,12 @@ export const GlobalChat = () => {
 
   const fetchChatMessages = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/chat/global`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/chat/global`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setChatMessages(data);
@@ -57,10 +62,12 @@ export const GlobalChat = () => {
 
     setIsSendingMessage(true);
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:3001/api/chat/global`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ message: newMessage })
       });
@@ -82,6 +89,38 @@ export const GlobalChat = () => {
     }
   };
 
+  const handleClearChat = async () => {
+    if (!confirm('Are you sure you want to clear all chat history? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/chat/global`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setChatMessages([]);
+        toast({
+          title: "Success",
+          description: "Chat history cleared successfully"
+        });
+      } else {
+        throw new Error('Failed to clear chat');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to clear chat history",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -93,7 +132,7 @@ export const GlobalChat = () => {
   return (
     <div className="max-w-6xl mx-auto h-[calc(100vh-10rem)] flex flex-col">
       {/* Compact Header */}
-      <div className="flex-shrink-0 mb-2">
+      <div className="flex-shrink-0 mb-2 flex justify-between items-center">
         <Button 
           variant="ghost" 
           asChild 
@@ -104,6 +143,17 @@ export const GlobalChat = () => {
             Back to Home
           </Link>
         </Button>
+        
+        {chatMessages.length > 0 && (
+          <Button
+            variant="ghost"
+            onClick={handleClearChat}
+            className="mb-1 !text-red-400 hover:!text-red-300 hover:bg-red-500/10 transition-all duration-200"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear Chat
+          </Button>
+        )}
       </div>
 
       {/* Chat Container */}

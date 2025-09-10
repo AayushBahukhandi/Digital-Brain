@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../database/sqlite.js';
 import { z } from 'zod';
 import { TranscriptService } from '../services/transcript.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 
 export const videoRoutes = Router();
 
@@ -13,9 +14,10 @@ const videoSchema = z.object({
   }),
 });
 
-videoRoutes.post('/process', async (req, res) => {
+videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { url } = videoSchema.parse(req.body);
+    const userId = req.user?.userId;
     
     // Detect platform and extract appropriate ID
     const platform = TranscriptService.detectPlatform(url);
@@ -103,13 +105,13 @@ videoRoutes.post('/process', async (req, res) => {
     
     // Save to database
     const stmt = db.prepare(`
-      INSERT INTO videos (youtube_url, title, transcript, summary, tags, platform)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO videos (user_id, youtube_url, title, transcript, summary, tags, platform)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
     const tagsString = autoTags.join(',');
     
-    stmt.run([url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
+    stmt.run([userId, url, contentTitle, fullTranscript, summary, tagsString, platform], function(err) {
       if (err) {
         console.error('Database error:', err);
         return res.status(500).json({ error: 'Failed to save content' });
@@ -136,8 +138,9 @@ videoRoutes.post('/process', async (req, res) => {
   }
 });
 
-videoRoutes.get('/', (req, res) => {
-  db.all('SELECT * FROM videos ORDER BY created_at DESC', (err, rows) => {
+videoRoutes.get('/', authenticateToken, (req: AuthRequest, res) => {
+  const userId = req.user?.userId;
+  db.all('SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch videos' });
     }
@@ -145,10 +148,11 @@ videoRoutes.get('/', (req, res) => {
   });
 });
 
-videoRoutes.get('/:id', (req, res) => {
+videoRoutes.get('/:id', authenticateToken, (req: AuthRequest, res) => {
   const { id } = req.params;
+  const userId = req.user?.userId;
   
-  db.get('SELECT * FROM videos WHERE id = ?', [id], (err, row) => {
+  db.get('SELECT * FROM videos WHERE id = ? AND user_id = ?', [id, userId], (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch video' });
     }
