@@ -10,6 +10,7 @@ export interface EdgeTTSOptions {
 }
 
 export interface EdgeTTSVoice {
+  id: string;
   name: string;
   displayName: string;
   gender: string;
@@ -19,23 +20,23 @@ export interface EdgeTTSVoice {
 
 export class EdgeTTSService {
   private static readonly OUTPUT_DIR = path.join(process.cwd(), 'audio-output');
-  private static readonly DEFAULT_VOICE = 'en-US-AriaNeural';
+  private static readonly DEFAULT_VOICE = 'en-US-JennyNeural';
   private static readonly VOICES_CACHE_FILE = path.join(process.cwd(), 'voices-cache.json');
 
   // Popular voices with character
   private static readonly POPULAR_VOICES: EdgeTTSVoice[] = [
-    { name: 'en-US-AriaNeural', displayName: 'Aria (Female, US)', gender: 'Female', locale: 'en-US', description: 'Friendly and warm' },
-    { name: 'en-US-DavisNeural', displayName: 'Davis (Male, US)', gender: 'Male', locale: 'en-US', description: 'Confident and clear' },
-    { name: 'en-US-JennyNeural', displayName: 'Jenny (Female, US)', gender: 'Female', locale: 'en-US', description: 'Professional and articulate' },
-    { name: 'en-US-GuyNeural', displayName: 'Guy (Male, US)', gender: 'Male', locale: 'en-US', description: 'Casual and approachable' },
-    { name: 'en-US-AmberNeural', displayName: 'Amber (Female, US)', gender: 'Female', locale: 'en-US', description: 'Energetic and enthusiastic' },
-    { name: 'en-US-BrandonNeural', displayName: 'Brandon (Male, US)', gender: 'Male', locale: 'en-US', description: 'Calm and reassuring' },
-    { name: 'en-US-EmmaNeural', displayName: 'Emma (Female, US)', gender: 'Female', locale: 'en-US', description: 'Young and vibrant' },
-    { name: 'en-US-RyanNeural', displayName: 'Ryan (Male, US)', gender: 'Male', locale: 'en-US', description: 'Smooth and engaging' },
-    { name: 'en-GB-SoniaNeural', displayName: 'Sonia (Female, UK)', gender: 'Female', locale: 'en-GB', description: 'Elegant British accent' },
-    { name: 'en-GB-RyanNeural', displayName: 'Ryan (Male, UK)', gender: 'Male', locale: 'en-GB', description: 'Professional British accent' },
-    { name: 'en-AU-NatashaNeural', displayName: 'Natasha (Female, AU)', gender: 'Female', locale: 'en-AU', description: 'Friendly Australian accent' },
-    { name: 'en-AU-KenNeural', displayName: 'Ken (Male, AU)', gender: 'Male', locale: 'en-AU', description: 'Relaxed Australian accent' },
+    { id: 'en-US-AriaNeural', name: 'en-US-AriaNeural', displayName: 'Aria (Female, US)', gender: 'Female', locale: 'en-US', description: 'Friendly and warm' },
+    { id: 'en-US-DavisNeural', name: 'en-US-DavisNeural', displayName: 'Davis (Male, US)', gender: 'Male', locale: 'en-US', description: 'Confident and clear' },
+    { id: 'en-US-JennyNeural', name: 'en-US-JennyNeural', displayName: 'Jenny (Female, US)', gender: 'Female', locale: 'en-US', description: 'Professional and articulate' },
+    { id: 'en-US-GuyNeural', name: 'en-US-GuyNeural', displayName: 'Guy (Male, US)', gender: 'Male', locale: 'en-US', description: 'Casual and approachable' },
+    { id: 'en-US-AmberNeural', name: 'en-US-AmberNeural', displayName: 'Amber (Female, US)', gender: 'Female', locale: 'en-US', description: 'Energetic and enthusiastic' },
+    { id: 'en-US-BrandonNeural', name: 'en-US-BrandonNeural', displayName: 'Brandon (Male, US)', gender: 'Male', locale: 'en-US', description: 'Calm and reassuring' },
+    { id: 'en-US-EmmaNeural', name: 'en-US-EmmaNeural', displayName: 'Emma (Female, US)', gender: 'Female', locale: 'en-US', description: 'Young and vibrant' },
+    { id: 'en-US-RyanNeural', name: 'en-US-RyanNeural', displayName: 'Ryan (Male, US)', gender: 'Male', locale: 'en-US', description: 'Smooth and engaging' },
+    { id: 'en-GB-SoniaNeural', name: 'en-GB-SoniaNeural', displayName: 'Sonia (Female, UK)', gender: 'Female', locale: 'en-GB', description: 'Elegant British accent' },
+    { id: 'en-GB-RyanNeural', name: 'en-GB-RyanNeural', displayName: 'Ryan (Male, UK)', gender: 'Male', locale: 'en-GB', description: 'Professional British accent' },
+    { id: 'en-AU-NatashaNeural', name: 'en-AU-NatashaNeural', displayName: 'Natasha (Female, AU)', gender: 'Female', locale: 'en-AU', description: 'Friendly Australian accent' },
+    { id: 'en-AU-KenNeural', name: 'en-AU-KenNeural', displayName: 'Ken (Male, AU)', gender: 'Male', locale: 'en-AU', description: 'Relaxed Australian accent' },
   ];
 
   /**
@@ -257,6 +258,7 @@ export class EdgeTTSService {
           try {
             const voices = JSON.parse(output);
             const processedVoices = voices.map((voice: any) => ({
+              id: voice.ShortName,
               name: voice.ShortName,
               displayName: `${voice.FriendlyName} (${voice.Gender}, ${voice.Locale})`,
               gender: voice.Gender,

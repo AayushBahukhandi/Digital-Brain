@@ -77,12 +77,28 @@ db.serialize(() => {
     )
   `);
 
+  // Notes table for custom notes and AI-generated notes
+  db.run(`
+    CREATE TABLE notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tags TEXT,
+      is_ai_generated BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  `);
+
   // Create indexes for better performance
   db.run(`CREATE INDEX idx_videos_user_id ON videos(user_id)`);
   db.run(`CREATE INDEX idx_videos_uuid ON videos(uuid)`);
   db.run(`CREATE INDEX idx_videos_platform ON videos(platform)`);
   db.run(`CREATE INDEX idx_voice_notes_user_id ON voice_notes(user_id)`);
   db.run(`CREATE INDEX idx_chat_messages_user_id ON global_chat_messages(user_id)`);
+  db.run(`CREATE INDEX idx_notes_user_id ON notes(user_id)`);
 
   console.log('✅ Cloud database schema created successfully');
   console.log('✅ All tables and indexes created');
@@ -95,6 +111,7 @@ db.close((err) => {
     console.log('🎉 Cloud database reset completed successfully!');
     console.log('📝 New schema includes:');
     console.log('   - Videos table with UUID support');
+    console.log('   - Notes table for custom and AI-generated notes');
     console.log('   - Proper user isolation');
     console.log('   - Performance indexes');
     console.log('   - Clean data structure');

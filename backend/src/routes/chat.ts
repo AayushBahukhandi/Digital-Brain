@@ -101,7 +101,14 @@ function extractSearchTerms(query: string): string[] {
 
 async function searchAcrossUserVideos(query: string, userId: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM videos WHERE user_id = ?', [userId], (err, videos) => {
+    // Search both videos and notes
+    db.all(`
+      SELECT 'video' as type, id, title, summary, transcript, tags, platform, created_at, youtube_url
+      FROM videos WHERE user_id = ?
+      UNION ALL
+      SELECT 'note' as type, id, title, content as summary, '' as transcript, tags, 'note' as platform, created_at, '' as youtube_url
+      FROM notes WHERE user_id = ?
+    `, [userId, userId], (err, items) => {
       if (err) {
         reject(err);
         return;
@@ -110,28 +117,31 @@ async function searchAcrossUserVideos(query: string, userId: number): Promise<an
       const searchTerms = extractSearchTerms(query);
       const results: any[] = [];
       
-      videos.forEach((video: any) => {
+      items.forEach((item: any) => {
         let relevanceScore = 0;
-        const title = (video.title || '').toLowerCase();
-        const summary = (video.summary || '').toLowerCase();
-        const transcript = (video.transcript || '').toLowerCase();
-        const content = `${title} ${summary} ${transcript}`;
+        const title = (item.title || '').toLowerCase();
+        const summary = (item.summary || '').toLowerCase();
+        const transcript = (item.transcript || '').toLowerCase();
+        const tags = (item.tags || '').toLowerCase();
+        const content = `${title} ${summary} ${transcript} ${tags}`;
         
         // Calculate relevance score with normalized approach
         searchTerms.forEach(term => {
           const titleMatches = (title.match(new RegExp(term, 'g')) || []).length;
           const summaryMatches = (summary.match(new RegExp(term, 'g')) || []).length;
           const transcriptMatches = (transcript.match(new RegExp(term, 'g')) || []).length;
+          const tagsMatches = (tags.match(new RegExp(term, 'g')) || []).length;
           
           // Normalize scores to prevent extremely high values
           relevanceScore += Math.min(titleMatches * 10, 30); // Title matches: max 30 points
           relevanceScore += Math.min(summaryMatches * 5, 20); // Summary matches: max 20 points  
           relevanceScore += Math.min(transcriptMatches * 1, 10); // Transcript matches: max 10 points
+          relevanceScore += Math.min(tagsMatches * 8, 25); // Tags matches: max 25 points
         });
         
         if (relevanceScore > 0) {
           results.push({
-            ...video,
+            ...item,
             relevance_score: relevanceScore,
             matched_content: extractRelevantContent(content, searchTerms)
           });
@@ -211,12 +221,14 @@ function prepareContextForLLM(message: string, searchResults: any[]): string {
   
   // Add query context
   contextParts.push(`User Query: "${message}"`);
-  contextParts.push(`Found ${searchResults.length} relevant video(s):`);
+  contextParts.push(`Found ${searchResults.length} relevant item(s) from your content:`);
   contextParts.push('');
   
   searchResults.forEach((result, index) => {
-    contextParts.push(`=== Video ${index + 1}: "${result.title}" ===`);
+    const contentType = result.type === 'note' ? 'Note' : 'Video';
+    contextParts.push(`=== ${contentType} ${index + 1}: "${result.title}" ===`);
     contextParts.push(`Relevance Score: ${result.relevance_score}`);
+    contextParts.push(`Type: ${result.type}`);
     
     if (result.summary) {
       contextParts.push(`Summary: ${result.summary}`);
@@ -226,8 +238,8 @@ function prepareContextForLLM(message: string, searchResults: any[]): string {
       contextParts.push(`Key Content: ${result.matched_content}`);
     }
     
-    // Add more context from transcript if available
-    if (result.transcript && result.transcript.length > 0) {
+    // Add more context from transcript if available (only for videos)
+    if (result.type === 'video' && result.transcript && result.transcript.length > 0) {
       const transcriptPreview = extractBetterContext(result.transcript, message);
       if (transcriptPreview && transcriptPreview !== result.matched_content) {
         contextParts.push(`Additional Context: ${transcriptPreview}`);

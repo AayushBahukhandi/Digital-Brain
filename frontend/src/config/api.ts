@@ -21,6 +21,10 @@ export const API_ENDPOINTS = {
   TTS_VOICES: `${API_BASE_URL}/tts/voices`,
   TTS_CONVERT: `${API_BASE_URL}/tts/convert`,
   TTS_TEST: `${API_BASE_URL}/tts/test`,
+  
+  // Notes endpoints
+  NOTES: `${API_BASE_URL}/notes`,
+  NOTES_ASK_AI: `${API_BASE_URL}/notes/ask-ai`,
 };
 
 // For dynamic endpoints
@@ -30,6 +34,7 @@ export const getVideoTitleEndpoint = (videoId: string) => `${API_BASE_URL}/video
 export const getVideoRegenerateTagsEndpoint = (videoId: string) => `${API_BASE_URL}/videos/${videoId}/regenerate-tags`;
 export const getTTSConvertSummaryEndpoint = (videoId: string) => `${API_BASE_URL}/tts/convert-summary/${videoId}`;
 export const getVoiceNoteEndpoint = (noteId: string) => `${API_BASE_URL}/voice-notes/${noteId}`;
+export const getNoteEndpoint = (noteId: string) => `${API_BASE_URL}/notes/${noteId}`;
 
 // For audio URLs (these don't include /api prefix)
 const BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001';

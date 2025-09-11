@@ -24,7 +24,7 @@ export const VoiceNotes = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [playingNoteId, setPlayingNoteId] = useState<string | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<string>('en_US-lessac-medium');
+  const [selectedVoice, setSelectedVoice] = useState<string>('en-US-JennyNeural');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);

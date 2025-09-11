@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Brain, Home, FileText, MessageCircle, LogOut, User } from 'lucide-react';
+import { Brain, Home, FileText, MessageCircle, LogOut, User, Edit3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -48,6 +48,22 @@ export const Layout = ({ children }: LayoutProps) => {
               </Button>
               
               <Button
+                variant={isActive('/my-notes') ? 'default' : 'ghost'}
+                size="sm"
+                asChild
+                className={`transition-all duration-200 rounded-lg ${
+                  isActive('/my-notes') 
+                    ? 'bg-primary text-primary-foreground shadow-lg hover:bg-primary-hover' 
+                    : '!text-white hover:!text-white hover:bg-white/10'
+                }`}
+              >
+                <Link to="/my-notes" className="flex items-center space-x-2 px-3 py-2">
+                  <Edit3 className="h-4 w-4" />
+                  <span>My Notes</span>
+                </Link>
+              </Button>
+              
+              <Button
                 variant={isActive('/all-notes') ? 'default' : 'ghost'}
                 size="sm"
                 asChild
@@ -59,7 +75,7 @@ export const Layout = ({ children }: LayoutProps) => {
               >
                 <Link to="/all-notes" className="flex items-center space-x-2 px-3 py-2">
                   <FileText className="h-4 w-4" />
-                  <span>Notes</span>
+                  <span>All Content</span>
                 </Link>
               </Button>
               

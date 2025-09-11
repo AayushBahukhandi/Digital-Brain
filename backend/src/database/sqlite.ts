@@ -52,6 +52,9 @@ export const initializeDatabase = () => {
     db.run(`CREATE INDEX IF NOT EXISTS idx_voice_notes_user_id ON voice_notes(user_id)`, (err) => {
       // Ignore error if index already exists
     });
+    db.run(`CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id)`, (err) => {
+      // Ignore error if index already exists
+    });
     db.run(`CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON global_chat_messages(user_id)`, (err) => {
       // Ignore error if index already exists
     });
@@ -84,6 +87,21 @@ export const initializeDatabase = () => {
         response TEXT NOT NULL,
         matched_videos TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `);
+
+    // Notes table for custom notes and AI-generated notes
+    db.run(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        tags TEXT,
+        is_ai_generated BOOLEAN DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);

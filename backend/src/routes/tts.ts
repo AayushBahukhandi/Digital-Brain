@@ -163,7 +163,7 @@ ttsRoutes.get('/voices', async (req, res) => {
     
     res.json({
       voices: voices,
-      default: 'en-US-AriaNeural',
+      default: 'en-US-JennyNeural',
       message: 'Edge TTS voices with character and personality'
     });
   } catch (error) {
@@ -172,7 +172,7 @@ ttsRoutes.get('/voices', async (req, res) => {
     const popularVoices = TTSService.getPopularVoices();
     res.json({
       voices: popularVoices,
-      default: 'en-US-AriaNeural',
+      default: 'en-US-JennyNeural',
       message: 'Popular Edge TTS voices (cached)'
     });
   }

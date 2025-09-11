@@ -27,7 +27,7 @@ export const Notes = () => {
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>('en_US-lessac-medium');
+  const [selectedVoice, setSelectedVoice] = useState<string>('en-US-JennyNeural');
   const { toast } = useToast();
   const { isPlaying, isLoading: ttsLoading, playSummary } = useTTS();
 

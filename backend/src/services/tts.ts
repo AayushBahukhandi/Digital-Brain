@@ -10,7 +10,7 @@ export interface TTSOptions {
 }
 
 export class TTSService {
-  private static readonly DEFAULT_VOICE = 'en_US-lessac-medium';
+  private static readonly DEFAULT_VOICE = 'en-US-JennyNeural';
   private static readonly MODELS_DIR = path.join(process.cwd(), 'tts-models');
   private static readonly OUTPUT_DIR = path.join(process.cwd(), 'audio-output');
 

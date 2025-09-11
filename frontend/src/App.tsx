@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { Notes } from './pages/Notes';
 import { AllNotes } from './pages/AllNotes';
+import { NotesPage } from './pages/NotesPage';
 import { GlobalChat } from './pages/GlobalChat';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -40,6 +41,7 @@ const AppRoutes = () => {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/notes/:videoId" element={<Notes />} />
+                  <Route path="/my-notes" element={<NotesPage />} />
                   <Route path="/all-notes" element={<AllNotes />} />
                   <Route path="/chat" element={<GlobalChat />} />
                 </Routes>
