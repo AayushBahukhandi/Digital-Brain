@@ -10,7 +10,7 @@ import {
   Trash2, 
   Loader2
 } from 'lucide-react';
-import { API_ENDPOINTS, getNoteEndpoint } from '../config/api';
+import { getNoteEndpoint } from '../config/api';
 
 interface Note {
   id: number;

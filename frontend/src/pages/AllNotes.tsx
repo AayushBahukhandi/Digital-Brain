@@ -31,8 +31,8 @@ interface Note {
 type ContentItem = Video | (Note & { type: 'note' });
 
 export const AllNotes = () => {
-  const [, setVideos] = useState<Video[]>([]);
-  const [, setNotes] = useState<Note[]>([]);
+  const [_videos, setVideos] = useState<Video[]>([]);
+  const [_notes, setNotes] = useState<Note[]>([]);
   const [allContent, setAllContent] = useState<ContentItem[]>([]);
   const [filteredContent, setFilteredContent] = useState<ContentItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
