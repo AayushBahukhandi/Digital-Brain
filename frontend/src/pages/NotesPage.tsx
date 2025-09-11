@@ -12,7 +12,6 @@ import {
   X, 
   Edit3, 
   Trash2, 
-  Tag, 
   Loader2,
   Sparkles,
   MessageSquare
