@@ -416,8 +416,8 @@ export class TranscriptService {
      */
     static async getYouTubeTitle(videoId) {
         try {
-            console.log(`Fetching YouTube title for video ID: ${videoId}`);
-            const response = await axios.get(`https://www.youtube.com/watch?v=${videoId}`, {
+            const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            const response = await axios.get(youtubeUrl, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 },
@@ -430,7 +430,6 @@ export class TranscriptService {
                 let title = titleMatch[1].trim();
                 // Remove " - YouTube" suffix if present
                 title = title.replace(/\s*-\s*YouTube\s*$/, '').trim();
-                console.log(`✓ YouTube title extracted: ${title}`);
                 return title;
             }
             // Alternative method: look for JSON-LD structured data
@@ -439,7 +438,6 @@ export class TranscriptService {
                 try {
                     const jsonData = JSON.parse(jsonLdMatch[1]);
                     if (jsonData.name) {
-                        console.log(`✓ YouTube title from JSON-LD: ${jsonData.name}`);
                         return jsonData.name;
                     }
                 }
@@ -450,7 +448,6 @@ export class TranscriptService {
             throw new Error('Could not extract title from YouTube page');
         }
         catch (error) {
-            console.log(`Failed to get YouTube title: ${error instanceof Error ? error.message : 'Unknown error'}`);
             throw error;
         }
     }
@@ -562,7 +559,13 @@ export class TranscriptService {
             const isAvailable = await openRouter.isAvailable();
             if (isAvailable) {
                 console.log('Using OpenRouter for advanced summarization');
-                return await openRouter.generateSummary(transcript, 'This is a transcript from a video or audio recording');
+                const summary = await openRouter.generateSummary(transcript, 'This is a transcript from a video or audio recording');
+                if (summary && summary.trim().length > 0) {
+                    return summary;
+                }
+                else {
+                    console.warn('OpenRouter returned empty summary, falling back to local processing');
+                }
             }
         }
         catch (error) {

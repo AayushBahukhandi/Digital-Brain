@@ -5,7 +5,9 @@ import { Home } from './pages/Home';
 import { Notes } from './pages/Notes';
 import { AllNotes } from './pages/AllNotes';
 import { NotesPage } from './pages/NotesPage';
+import { NoteView } from './pages/NoteView';
 import { GlobalChat } from './pages/GlobalChat';
+import { VoiceNotes } from './pages/VoiceNotes';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -41,8 +43,10 @@ const AppRoutes = () => {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/notes/:videoId" element={<Notes />} />
+                  <Route path="/note/:noteId" element={<NoteView />} />
                   <Route path="/my-notes" element={<NotesPage />} />
                   <Route path="/all-notes" element={<AllNotes />} />
+                  <Route path="/voice-notes" element={<VoiceNotes />} />
                   <Route path="/chat" element={<GlobalChat />} />
                 </Routes>
                 <Toaster />

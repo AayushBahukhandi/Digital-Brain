@@ -57,7 +57,7 @@ chatRoutes.post('/global', authenticateToken, async (req: AuthRequest, res) => {
       userId,
       message.trim(), 
       response, 
-      JSON.stringify(searchResults.map(r => ({ id: r.id, title: r.title, relevance_score: r.relevance_score })))
+      JSON.stringify(searchResults.map(r => ({ id: r.id, title: r.title, relevance_score: r.relevance_score, type: r.type })))
     ], function(err) {
       if (err) {
         console.error('Database error:', err);
@@ -68,7 +68,7 @@ chatRoutes.post('/global', authenticateToken, async (req: AuthRequest, res) => {
         id: this.lastID,
         message: message.trim(),
         response,
-        matched_videos: searchResults.map(r => ({ id: r.id, title: r.title, relevance_score: r.relevance_score })),
+        matched_videos: searchResults.map(r => ({ id: r.id, title: r.title, relevance_score: r.relevance_score, type: r.type })),
         created_at: new Date().toISOString()
       });
     });

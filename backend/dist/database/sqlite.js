@@ -16,10 +16,11 @@ export const initializeDatabase = () => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-        // Videos table
+        // Videos table with UUID support
         db.run(`
       CREATE TABLE IF NOT EXISTS videos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uuid TEXT UNIQUE NOT NULL,
         user_id INTEGER,
         youtube_url TEXT NOT NULL,
         title TEXT,
@@ -29,26 +30,28 @@ export const initializeDatabase = () => {
         platform TEXT DEFAULT 'youtube',
         embedding BLOB,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);
-        // Add tags column if it doesn't exist (for existing databases)
-        db.run(`
-      ALTER TABLE videos ADD COLUMN tags TEXT
-    `, (err) => {
-            // Ignore error if column already exists
+        // Create indexes for better performance
+        db.run(`CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id)`, (err) => {
+            // Ignore error if index already exists
         });
-        // Add platform column if it doesn't exist (for existing databases)
-        db.run(`
-      ALTER TABLE videos ADD COLUMN platform TEXT DEFAULT 'youtube'
-    `, (err) => {
-            // Ignore error if column already exists
+        db.run(`CREATE INDEX IF NOT EXISTS idx_videos_uuid ON videos(uuid)`, (err) => {
+            // Ignore error if index already exists
         });
-        // Add user_id column if it doesn't exist (for existing databases)
-        db.run(`
-      ALTER TABLE videos ADD COLUMN user_id INTEGER
-    `, (err) => {
-            // Ignore error if column already exists
+        db.run(`CREATE INDEX IF NOT EXISTS idx_videos_platform ON videos(platform)`, (err) => {
+            // Ignore error if index already exists
+        });
+        db.run(`CREATE INDEX IF NOT EXISTS idx_voice_notes_user_id ON voice_notes(user_id)`, (err) => {
+            // Ignore error if index already exists
+        });
+        db.run(`CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id)`, (err) => {
+            // Ignore error if index already exists
+        });
+        db.run(`CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON global_chat_messages(user_id)`, (err) => {
+            // Ignore error if index already exists
         });
         // Voice notes table
         db.run(`
@@ -73,6 +76,20 @@ export const initializeDatabase = () => {
         response TEXT NOT NULL,
         matched_videos TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `);
+        // Notes table for custom notes and AI-generated notes
+        db.run(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        tags TEXT,
+        is_ai_generated BOOLEAN DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);

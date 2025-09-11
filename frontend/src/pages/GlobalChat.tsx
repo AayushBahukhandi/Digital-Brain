@@ -15,6 +15,7 @@ interface ChatMessage {
     id: number;
     title: string;
     relevance_score: number;
+    type: string;
   }>;
 }
 
@@ -212,21 +213,21 @@ export const GlobalChat = () => {
                   <div className="bg-surface/50 backdrop-blur-sm p-2 sm:p-3 rounded-2xl max-w-[80%] space-y-1 border border-white/10">
                     <p className="text-text-primary text-sm">{chat.response}</p>
                     
-                    {/* Matched Videos */}
+                    {/* Matched Videos and Notes */}
                     {chat.matched_videos && chat.matched_videos.length > 0 && (
                       <div className="border-t border-white/10 pt-2 mt-2">
                         <p className="text-xs font-semibold text-text-secondary mb-1 flex items-center">
                           <Video className="h-3 w-3 mr-1" />
-                          Related videos:
+                          Related content:
                         </p>
                         <div className="space-y-1">
-                          {chat.matched_videos.map((video) => (
-                            <div key={video.id} className="flex items-center justify-between bg-card/30 p-2 rounded-lg">
+                          {chat.matched_videos.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between bg-card/30 p-2 rounded-lg">
                               <div className="flex items-center flex-1 min-w-0">
                                 <div className="w-1.5 h-1.5 bg-accent rounded-full mr-2 flex-shrink-0"></div>
-                                <span className="text-xs text-text-primary truncate">{video.title}</span>
+                                <span className="text-xs text-text-primary truncate">{item.title}</span>
                                 <span className="text-xs text-text-secondary ml-1">
-                                  (Score: {video.relevance_score})
+                                  ({item.type === 'note' ? 'Note' : 'Video'} - Score: {item.relevance_score})
                                 </span>
                               </div>
                               <Button
@@ -235,8 +236,8 @@ export const GlobalChat = () => {
                                 asChild
                                 className="h-6 px-2 ml-2 bg-primary/20 border-primary/50 hover:bg-primary/30 text-xs"
                               >
-                                <Link to={`/notes/${video.id}`}>
-                                  View
+                                <Link to={item.type === 'note' ? `/note/${item.id}` : `/notes/${item.id}`}>
+                                  {item.type === 'note' ? 'View Note' : 'View Video'}
                                 </Link>
                               </Button>
                             </div>

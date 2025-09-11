@@ -29,7 +29,7 @@ export const Notes = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<string>('en-US-JennyNeural');
   const { toast } = useToast();
-  const { isPlaying, isLoading: ttsLoading, playSummary } = useTTS();
+  const { isPlaying, isLoading: ttsLoading, playSummary, stopAudio } = useTTS();
 
   useEffect(() => {
     if (videoId) {
@@ -266,7 +266,7 @@ export const Notes = () => {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => playSummary(video.id.toString(), { voice: selectedVoice })}
+                  onClick={() => isPlaying ? stopAudio() : playSummary(video.id.toString(), { voice: selectedVoice })}
                   disabled={ttsLoading || !video.summary}
                   className="flex-1 h-12 bg-secondary/20 border-secondary/50 hover:bg-secondary/30 transition-all duration-200"
                 >

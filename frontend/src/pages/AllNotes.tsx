@@ -287,7 +287,7 @@ export const AllNotes = () => {
                 >
                   {isNote ? (
                     // Note rendering
-                    <div className="block">
+                    <Link to={`/note/${note!.id}`} className="block">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
@@ -329,13 +329,17 @@ export const AllNotes = () => {
                             size="sm"
                             variant="ghost"
                             className="h-8 px-3 bg-surface/50 border-white/20 hover:bg-destructive/20 hover:border-destructive/50"
-                            onClick={() => handleDeleteNote(note!.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteNote(note!.id);
+                            }}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ) : (
                     // Video rendering
                     <Link to={`/notes/${video!.id}`} className="block">

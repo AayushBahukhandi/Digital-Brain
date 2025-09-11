@@ -269,7 +269,7 @@ export class TTSService {
         }
     }
 }
-TTSService.DEFAULT_VOICE = 'en_US-lessac-medium';
+TTSService.DEFAULT_VOICE = 'en-US-JennyNeural';
 TTSService.MODELS_DIR = path.join(process.cwd(), 'tts-models');
 TTSService.OUTPUT_DIR = path.join(process.cwd(), 'audio-output');
 //# sourceMappingURL=tts.js.map

@@ -31,7 +31,7 @@ export const VoiceNotes = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
-  const { isPlaying: ttsPlaying, isLoading: ttsLoading, playText } = useTTS();
+  const { isPlaying: ttsPlaying, isLoading: ttsLoading, playText, stopAudio } = useTTS();
 
   useEffect(() => {
     fetchVoiceNotes();
@@ -381,7 +381,7 @@ export const VoiceNotes = () => {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => playText(note.summary || note.transcript, { voice: selectedVoice })}
+                    onClick={() => ttsPlaying ? stopAudio() : playText(note.summary || note.transcript, { voice: selectedVoice })}
                     disabled={ttsLoading}
                     className="bg-secondary/20 border-secondary/50 hover:bg-secondary/30"
                     title="Listen with TTS"
