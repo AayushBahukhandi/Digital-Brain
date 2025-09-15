@@ -177,11 +177,14 @@ export class TranscriptService {
         }
 
         const data = response.data as ExternalTranscriptResponse;
+        console.log('External API response data:', JSON.stringify(data, null, 2));
         const transcript = this.convertCaptionsToText(data.captions);
 
         if (transcript.length < 10) {
             throw new Error('Transcript too short - may be invalid');
         }
+
+        console.log('Extracted title from external API:', data.title);
 
         return {
             success: true,
@@ -540,44 +543,83 @@ export class TranscriptService {
 
 
     /**
-     * Get YouTube video title directly from YouTube
+     * Get YouTube video title directly from YouTube with multiple extraction methods
      */
     static async getYouTubeTitle(videoId: string): Promise<string> {
         try {
             const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
             const response = await axios.get(youtubeUrl, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1'
                 },
-                timeout: 10000
+                timeout: 15000
             });
 
-            // Extract title from HTML using regex
             const htmlContent = response.data as string;
-            const titleMatch = htmlContent.match(/<title>([^<]+)<\/title>/i);
             
+            // Method 1: Extract from <title> tag
+            const titleMatch = htmlContent.match(/<title>([^<]+)<\/title>/i);
             if (titleMatch && titleMatch[1]) {
                 let title = titleMatch[1].trim();
                 // Remove " - YouTube" suffix if present
                 title = title.replace(/\s*-\s*YouTube\s*$/, '').trim();
-                return title;
-            }
-
-            // Alternative method: look for JSON-LD structured data
-            const jsonLdMatch = htmlContent.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
-            
-            if (jsonLdMatch) {
-                try {
-                    const jsonData = JSON.parse(jsonLdMatch[1]);
-                    if (jsonData.name) {
-                        return jsonData.name;
-                    }
-                } catch (e) {
-                    // Ignore JSON parsing errors
+                if (title && title !== 'YouTube' && title.length > 3) {
+                    return title;
                 }
             }
 
-            throw new Error('Could not extract title from YouTube page');
+            // Method 2: Look for JSON-LD structured data
+            const jsonLdMatches = htmlContent.match(/<script type="application\/ld\+json">(.*?)<\/script>/gs);
+            if (jsonLdMatches) {
+                for (const match of jsonLdMatches) {
+                    try {
+                        const jsonData = JSON.parse(match.replace(/<script type="application\/ld\+json">|<\/script>/g, ''));
+                        if (jsonData.name && typeof jsonData.name === 'string') {
+                            const title = jsonData.name.trim();
+                            if (title && title !== 'YouTube' && title.length > 3) {
+                                return title;
+                            }
+                        }
+                    } catch (e) {
+                        // Continue to next match
+                    }
+                }
+            }
+
+            // Method 3: Look for og:title meta tag
+            const ogTitleMatch = htmlContent.match(/<meta property="og:title" content="([^"]+)"[^>]*>/i);
+            if (ogTitleMatch && ogTitleMatch[1]) {
+                const title = ogTitleMatch[1].trim();
+                if (title && title !== 'YouTube' && title.length > 3) {
+                    return title;
+                }
+            }
+
+            // Method 4: Look for twitter:title meta tag
+            const twitterTitleMatch = htmlContent.match(/<meta name="twitter:title" content="([^"]+)"[^>]*>/i);
+            if (twitterTitleMatch && twitterTitleMatch[1]) {
+                const title = twitterTitleMatch[1].trim();
+                if (title && title !== 'YouTube' && title.length > 3) {
+                    return title;
+                }
+            }
+
+            // Method 5: Look for ytInitialPlayerResponse data
+            const playerResponseMatch = htmlContent.match(/"title":"([^"]+)"/);
+            if (playerResponseMatch && playerResponseMatch[1]) {
+                const title = playerResponseMatch[1].trim();
+                if (title && title !== 'YouTube' && title.length > 3) {
+                    return title;
+                }
+            }
+
+            throw new Error('Could not extract title from YouTube page using any method');
         } catch (error) {
             throw error;
         }

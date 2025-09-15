@@ -17,6 +17,128 @@ const videoSchema = z.object({
   }),
 });
 
+/**
+ * Extract YouTube title using multiple fallback methods
+ */
+async function extractYouTubeTitleWithFallbacks(videoId: string, apiTitle?: string, transcript?: string): Promise<string> {
+  console.log('🎯 Starting YouTube title extraction with multiple fallbacks...');
+  
+  // Method 1: Use title from external API if available and valid
+  if (apiTitle && apiTitle !== 'No title found' && apiTitle.trim().length > 0) {
+    console.log('✅ Using title from external API:', apiTitle);
+    return apiTitle;
+  }
+  
+  // Method 2: Direct YouTube page scraping
+  try {
+    console.log('🔄 Trying direct YouTube page scraping...');
+    const directTitle = await TranscriptService.getYouTubeTitle(videoId);
+    if (directTitle && directTitle.trim().length > 0) {
+      console.log('✅ Direct YouTube scraping successful:', directTitle);
+      return directTitle;
+    }
+  } catch (error) {
+    console.log('❌ Direct YouTube scraping failed:', error);
+  }
+  
+  // Method 3: YouTube oEmbed API
+  try {
+    console.log('🔄 Trying YouTube oEmbed API...');
+    const oembedTitle = await getYouTubeTitleFromOEmbed(videoId);
+    if (oembedTitle && oembedTitle.trim().length > 0) {
+      console.log('✅ YouTube oEmbed API successful:', oembedTitle);
+      return oembedTitle;
+    }
+  } catch (error) {
+    console.log('❌ YouTube oEmbed API failed:', error);
+  }
+  
+  // Method 4: YouTube Data API (if available)
+  try {
+    console.log('🔄 Trying YouTube Data API...');
+    const dataApiTitle = await getYouTubeTitleFromDataAPI(videoId);
+    if (dataApiTitle && dataApiTitle.trim().length > 0) {
+      console.log('✅ YouTube Data API successful:', dataApiTitle);
+      return dataApiTitle;
+    }
+  } catch (error) {
+    console.log('❌ YouTube Data API failed:', error);
+  }
+  
+  // Method 5: Generate title from transcript content (last resort)
+  if (transcript && transcript.length > 100) {
+    console.log('🔄 All direct methods failed, generating title from transcript content...');
+    return await generateTitleFromTranscript(transcript);
+  }
+  
+  console.log('🔄 No transcript available for title generation, using default...');
+  return 'Untitled YouTube Video';
+}
+
+/**
+ * Get YouTube title using oEmbed API
+ */
+async function getYouTubeTitleFromOEmbed(videoId: string): Promise<string> {
+  const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+  
+  const response = await fetch(oembedUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`oEmbed API failed with status: ${response.status}`);
+  }
+  
+  const data = await response.json() as { title: string };
+  return data.title || '';
+}
+
+/**
+ * Get YouTube title using YouTube Data API (requires API key)
+ */
+async function getYouTubeTitleFromDataAPI(videoId: string): Promise<string> {
+  // This would require a YouTube Data API key
+  // For now, we'll skip this method unless an API key is provided
+  throw new Error('YouTube Data API not configured');
+}
+
+/**
+ * Generate a meaningful title from transcript content
+ */
+async function generateTitleFromTranscript(transcript: string): Promise<string> {
+  try {
+    console.log('🔄 Generating title from transcript content...');
+    
+    // Use OpenRouter to generate a concise title from the transcript
+    const prompt = `Based on this video transcript, generate a concise, descriptive title (max 60 characters). The title should capture the main topic or theme of the video. Do not include "YouTube" or "Video" in the title.
+
+Transcript: ${transcript.substring(0, 2000)}...
+
+Title:`;
+
+    const response = await TranscriptService.generateSummary(prompt);
+    
+    if (response && response.trim().length > 0) {
+      // Clean up the response
+      let title = response.trim();
+      // Remove quotes if present
+      title = title.replace(/^["']|["']$/g, '');
+      // Limit length
+      if (title.length > 60) {
+        title = title.substring(0, 57) + '...';
+      }
+      console.log('✅ Generated title from transcript:', title);
+      return title;
+    }
+  } catch (error) {
+    console.log('❌ Failed to generate title from transcript:', error);
+  }
+  
+  return 'Untitled YouTube Video';
+}
+
 videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { url } = videoSchema.parse(req.body);
@@ -93,18 +215,13 @@ videoRoutes.post('/process', authenticateToken, async (req: AuthRequest, res) =>
       // Generate auto tags based on content
       autoTags = TranscriptService.generateTags(fullTranscript, summary);
       
-      // Use title from external API if available
-      if (transcriptResult.title && transcriptResult.title !== 'No title found' && transcriptResult.title.trim().length > 0) {
-        contentTitle = transcriptResult.title;
-      } else if (platform === 'youtube') {
-        // Try to get title from YouTube directly
-        try {
-          const youtubeTitle = await TranscriptService.getYouTubeTitle(contentId);
-          if (youtubeTitle && youtubeTitle.trim().length > 0) {
-            contentTitle = youtubeTitle;
-          }
-        } catch (error) {
-          // Silent fail for title extraction
+      // Try multiple methods to get YouTube title with robust fallbacks
+      if (platform === 'youtube') {
+        contentTitle = await extractYouTubeTitleWithFallbacks(contentId, transcriptResult.title, fullTranscript);
+      } else {
+        // For non-YouTube platforms, use transcript result title if available
+        if (transcriptResult.title && transcriptResult.title !== 'No title found' && transcriptResult.title.trim().length > 0) {
+          contentTitle = transcriptResult.title;
         }
       }
       
