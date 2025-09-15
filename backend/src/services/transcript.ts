@@ -75,6 +75,29 @@ export interface DictationerJobResponse {
 export class TranscriptService {
 
     /**
+     * Validate if a string looks like a video title (not metadata like view counts)
+     */
+    private static isValidVideoTitle(title: string): boolean {
+        if (!title || title.trim().length < 3) return false;
+        
+        const trimmedTitle = title.trim();
+        
+        // Reject if it's just a number with K/M suffix (view counts)
+        if (/^\d+\.?\d*[KMB]?$/.test(trimmedTitle)) return false;
+        
+        // Reject if it's just "YouTube" or similar
+        if (trimmedTitle === 'YouTube' || trimmedTitle === 'Video') return false;
+        
+        // Reject if it contains only special characters or numbers
+        if (!/[a-zA-Z]/.test(trimmedTitle)) return false;
+        
+        // Reject very short titles that are likely metadata
+        if (trimmedTitle.length < 5) return false;
+        
+        return true;
+    }
+
+    /**
      * Extract transcript from a video URL using external API
      */
     static async extractTranscript(url: string): Promise<TranscriptResult> {
@@ -569,7 +592,7 @@ export class TranscriptService {
                 let title = titleMatch[1].trim();
                 // Remove " - YouTube" suffix if present
                 title = title.replace(/\s*-\s*YouTube\s*$/, '').trim();
-                if (title && title !== 'YouTube' && title.length > 3) {
+                if (this.isValidVideoTitle(title)) {
                     return title;
                 }
             }
@@ -582,7 +605,7 @@ export class TranscriptService {
                         const jsonData = JSON.parse(match.replace(/<script type="application\/ld\+json">|<\/script>/g, ''));
                         if (jsonData.name && typeof jsonData.name === 'string') {
                             const title = jsonData.name.trim();
-                            if (title && title !== 'YouTube' && title.length > 3) {
+                            if (this.isValidVideoTitle(title)) {
                                 return title;
                             }
                         }
@@ -596,7 +619,7 @@ export class TranscriptService {
             const ogTitleMatch = htmlContent.match(/<meta property="og:title" content="([^"]+)"[^>]*>/i);
             if (ogTitleMatch && ogTitleMatch[1]) {
                 const title = ogTitleMatch[1].trim();
-                if (title && title !== 'YouTube' && title.length > 3) {
+                if (this.isValidVideoTitle(title)) {
                     return title;
                 }
             }
@@ -605,17 +628,48 @@ export class TranscriptService {
             const twitterTitleMatch = htmlContent.match(/<meta name="twitter:title" content="([^"]+)"[^>]*>/i);
             if (twitterTitleMatch && twitterTitleMatch[1]) {
                 const title = twitterTitleMatch[1].trim();
-                if (title && title !== 'YouTube' && title.length > 3) {
+                if (this.isValidVideoTitle(title)) {
                     return title;
                 }
             }
 
-            // Method 5: Look for ytInitialPlayerResponse data
-            const playerResponseMatch = htmlContent.match(/"title":"([^"]+)"/);
+            // Method 5: Look for ytInitialPlayerResponse data with more specific pattern
+            const playerResponseMatch = htmlContent.match(/"videoDetails":\s*{[^}]*"title":\s*"([^"]+)"/);
             if (playerResponseMatch && playerResponseMatch[1]) {
                 const title = playerResponseMatch[1].trim();
-                if (title && title !== 'YouTube' && title.length > 3) {
+                if (this.isValidVideoTitle(title)) {
                     return title;
+                }
+            }
+
+            // Method 6: Look for title in ytInitialPlayerResponse more broadly
+            const ytInitialMatch = htmlContent.match(/var ytInitialPlayerResponse = ({.+?});/);
+            if (ytInitialMatch && ytInitialMatch[1]) {
+                try {
+                    const playerResponse = JSON.parse(ytInitialMatch[1]);
+                    if (playerResponse.videoDetails && playerResponse.videoDetails.title) {
+                        const title = playerResponse.videoDetails.title.trim();
+                        if (this.isValidVideoTitle(title)) {
+                            return title;
+                        }
+                    }
+                } catch (e) {
+                    // Continue to next method
+                }
+            }
+
+            // Method 7: Look for title in ytInitialData
+            const ytInitialDataMatch = htmlContent.match(/var ytInitialData = ({.+?});/);
+            if (ytInitialDataMatch && ytInitialDataMatch[1]) {
+                try {
+                    const initialData = JSON.parse(ytInitialDataMatch[1]);
+                    // Navigate through the complex YouTube data structure
+                    const videoTitle = initialData?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.[0]?.videoPrimaryInfoRenderer?.title?.runs?.[0]?.text;
+                    if (this.isValidVideoTitle(videoTitle)) {
+                        return videoTitle.trim();
+                    }
+                } catch (e) {
+                    // Continue to next method
                 }
             }
 
