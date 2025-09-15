@@ -77,18 +77,37 @@ notesRoutes.post('/ask-ai', authenticateToken, async (req: AuthRequest, res) => 
     // Generate AI response
     const aiResponse = await openRouter.generateChatResponse(question, '');
     
-    // Generate title and tags using AI
-    const titlePrompt = `Generate a concise, descriptive title (max 60 characters) for this content: "${aiResponse}"`;
-    const tagsPrompt = `Generate 3-5 relevant tags (comma-separated) for this content: "${aiResponse}"`;
+    // Generate title and tags using AI with improved prompts
+    const titlePrompt = `Based on this content, generate a clear, descriptive title that captures the main topic or question. The title should be 3-8 words and directly relate to the content. Do not include quotes, colons, or special characters. Just return the title text.
+
+Content: "${aiResponse}"`;
+
+    const tagsPrompt = `Based on this content, generate 3-5 relevant tags that describe the main topics, concepts, or themes. Return only the tags separated by commas, no numbers, colons, or special formatting. Each tag should be 1-3 words.
+
+Content: "${aiResponse}"`;
     
     const [titleResponse, tagsResponse] = await Promise.all([
       openRouter.generateChatResponse(titlePrompt, ''),
       openRouter.generateChatResponse(tagsPrompt, '')
     ]);
     
-    // Clean up the responses
-    const title = titleResponse.replace(/['"]/g, '').trim().substring(0, 60);
-    const tags = tagsResponse.replace(/['"]/g, '').trim().replace(/\n/g, ', ').substring(0, 200);
+    // Clean up the responses with better processing
+    const title = titleResponse
+      .replace(/['"]/g, '')
+      .replace(/[:\-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .substring(0, 60);
+    
+    const tags = tagsResponse
+      .replace(/['"]/g, '')
+      .replace(/[:\-]/g, ' ')
+      .replace(/\n/g, ', ')
+      .replace(/\d+\.\s*/g, '') // Remove numbered lists
+      .replace(/\s*,\s*/g, ', ') // Normalize comma spacing
+      .replace(/\s+/g, ' ')
+      .trim()
+      .substring(0, 200);
     
     res.json({
       success: true,
